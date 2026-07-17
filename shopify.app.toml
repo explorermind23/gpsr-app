@@ -1,0 +1,43 @@
+# GPSR Compliance Hub — Shopify app config
+# Fill client_id + application_url after `shopify app config link` / Railway deploy.
+
+client_id = "REPLACE_AFTER_PARTNER_CREATE"
+name = "GPSR Compliance Hub"
+handle = "gpsr-compliance-hub"
+application_url = "https://REPLACE_WITH_RAILWAY_URL"
+embedded = true
+
+[access_scopes]
+# read_products: list products for the compliance dashboard/scanner
+# write_products: attach metafields (RP, warnings, identifiers) to products
+# write_metaobjects/read_metaobjects: store structured GPSR data natively
+scopes = "read_products,write_products,read_metaobjects,write_metaobjects"
+
+[auth]
+redirect_urls = [
+  "https://REPLACE_WITH_RAILWAY_URL/auth/callback",
+  "https://REPLACE_WITH_RAILWAY_URL/auth/shopify/callback",
+  "https://REPLACE_WITH_RAILWAY_URL/api/auth/callback"
+]
+
+[webhooks]
+api_version = "2025-01"
+
+  [[webhooks.subscriptions]]
+  topics = [ "app/uninstalled" ]
+  uri = "/webhooks/app/uninstalled"
+
+  [[webhooks.subscriptions]]
+  topics = [ "app/scopes_update" ]
+  uri = "/webhooks/app/scopes_update"
+
+  [[webhooks.subscriptions]]
+  topics = [ "products/update" ]
+  uri = "/webhooks/products/update"
+
+[pos]
+embedded = false
+
+[build]
+automatically_update_urls_on_dev = true
+dev_store_url = "cashtrail-demo-pk.myshopify.com"

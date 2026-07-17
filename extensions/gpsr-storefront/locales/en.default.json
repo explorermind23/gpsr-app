@@ -1,0 +1,12 @@
+{
+  "gpsr": {
+    "responsible_person": "EU Responsible Person",
+    "manufacturer": "Manufacturer",
+    "identifiers": "Product identifiers",
+    "model": "Model",
+    "batch": "Batch",
+    "serial": "Serial",
+    "ce_marked": "CE marked",
+    "care": "Care & usage"
+  }
+}

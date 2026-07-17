@@ -1,0 +1,7 @@
+api_version = "2025-01"
+
+[[extensions]]
+name = "GPSR Compliance"
+handle = "gpsr-storefront"
+uid = "6852e889-539e-c0cf-40c1-893bee535cd9b9387c11"
+type = "theme"

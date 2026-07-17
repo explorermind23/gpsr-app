@@ -1,0 +1,156 @@
+{%- comment -%}
+  GPSR Compliance block — reads product metafields written by the app and renders
+  the legally required product-safety information on the product page.
+  Locale-aware: shows the warning matching the storefront language, falls back to English.
+{%- endcomment -%}
+
+{%- assign rp = product.metafields.gpsr.responsible_person.value -%}
+{%- assign mf = product.metafields.gpsr.manufacturer.value -%}
+{%- assign warnings = product.metafields.gpsr.warnings.value -%}
+{%- assign ids = product.metafields.gpsr.identifiers.value -%}
+{%- assign care = product.metafields.gpsr.care_instructions.value -%}
+{%- assign ce = product.metafields.gpsr.ce_marked.value -%}
+{%- assign picts = product.metafields.gpsr.pictograms.value -%}
+{%- assign gpsr_status = product.metafields.gpsr.status.value -%}
+
+{%- comment -%} Geo-gate: if "EU visitors only" is on, hide outside EU/EEA. {%- endcomment -%}
+{%- assign eu_codes = "AT,BE,BG,HR,CY,CZ,DK,EE,FI,FR,DE,GR,HU,IE,IT,LV,LT,LU,MT,NL,PL,PT,RO,SK,SI,ES,SE,IS,LI,NO,XI" -%}
+{%- assign visitor_country = localization.country.iso_code | default: request.locale.iso_code -%}
+{%- assign geo_ok = true -%}
+{%- if block.settings.eu_only -%}
+  {%- assign geo_ok = false -%}
+  {%- if eu_codes contains visitor_country -%}{%- assign geo_ok = true -%}{%- endif -%}
+{%- endif -%}
+
+{%- assign has_data = false -%}
+{%- if rp != blank or warnings != blank or mf != blank -%}{%- assign has_data = true -%}{%- endif -%}
+
+{%- if has_data and block.settings.enabled and geo_ok -%}
+<div class="gpsr-panel" style="border:1px solid {{ block.settings.border_color }};border-radius:{{ block.settings.radius }}px;padding:16px 18px;margin:{{ block.settings.margin_top }}px 0;background:{{ block.settings.bg_color }};">
+  <button type="button" class="gpsr-head" aria-expanded="{{ block.settings.open_default }}" style="all:unset;display:flex;align-items:center;justify-content:space-between;width:100%;cursor:pointer;">
+    <span style="font-weight:600;font-size:{{ block.settings.title_size }}px;color:{{ block.settings.text_color }};">{{ block.settings.heading }}</span>
+    <span class="gpsr-caret" aria-hidden="true" style="color:{{ block.settings.text_color }};">▾</span>
+  </button>
+
+  <div class="gpsr-body" {% unless block.settings.open_default %}hidden{% endunless %} style="margin-top:12px;font-size:14px;line-height:1.6;color:{{ block.settings.text_color }};">
+
+    {%- comment -%} Warnings — match storefront language, else show all {%- endcomment -%}
+    {%- if warnings != blank -%}
+      {%- assign current_lang = request.locale.iso_code | default: localization.language.iso_code | slice: 0, 2 | downcase -%}
+      {%- assign shown = false -%}
+      <div class="gpsr-warnings" style="border-left:3px solid {{ block.settings.warning_color }};padding-left:12px;margin-bottom:14px;">
+        {%- for w in warnings -%}
+          {%- assign wl = w.locale | downcase -%}
+          {%- if wl == current_lang -%}
+            <p style="margin:0 0 6px;font-weight:600;color:{{ block.settings.warning_color }};">⚠ {{ w.text }}</p>
+            {%- assign shown = true -%}
+          {%- endif -%}
+        {%- endfor -%}
+        {%- unless shown -%}
+          {%- for w in warnings -%}
+            {%- if w.locale == 'en' -%}
+              <p style="margin:0 0 6px;font-weight:600;color:{{ block.settings.warning_color }};">⚠ {{ w.text }}</p>
+              {%- assign shown = true -%}
+            {%- endif -%}
+          {%- endfor -%}
+        {%- endunless -%}
+        {%- unless shown -%}
+          {%- for w in warnings limit: 1 -%}
+            <p style="margin:0 0 6px;font-weight:600;color:{{ block.settings.warning_color }};">⚠ {{ w.text }}</p>
+          {%- endfor -%}
+        {%- endunless -%}
+      </div>
+    {%- endif -%}
+
+    {%- if picts != blank and picts.size > 0 -%}
+      <div class="gpsr-pictograms" style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px;">
+        {%- for p in picts -%}
+          <span title="{{ p.label }}" style="width:44px;height:44px;display:inline-block;">{{ p.svg }}</span>
+        {%- endfor -%}
+      </div>
+    {%- endif -%}
+
+    {%- if rp != blank -%}
+      <div style="margin-bottom:12px;">
+        <div style="font-weight:600;margin-bottom:2px;">{{ 'gpsr.responsible_person' | t }}</div>
+        <div>{{ rp.name }}{% if rp.company != blank %}, {{ rp.company }}{% endif %}</div>
+        <div>{{ rp.address }}{% if rp.country != blank %}, {{ rp.country }}{% endif %}</div>
+        <div>{{ rp.email }} · {{ rp.phone }}</div>
+      </div>
+    {%- endif -%}
+
+    {%- if mf != blank and mf.name != blank -%}
+      <div style="margin-bottom:12px;">
+        <div style="font-weight:600;margin-bottom:2px;">{{ 'gpsr.manufacturer' | t }}</div>
+        <div>{{ mf.name }}{% if mf.tradeName != blank %} ({{ mf.tradeName }}){% endif %}</div>
+        <div>{{ mf.address }}</div>
+      </div>
+    {%- endif -%}
+
+    {%- if ids != blank -%}
+      {%- if ids.gtin != blank or ids.model != blank or ids.batch != blank or ids.serial != blank -%}
+      <div style="margin-bottom:12px;">
+        <div style="font-weight:600;margin-bottom:2px;">{{ 'gpsr.identifiers' | t }}</div>
+        <div>
+          {% if ids.gtin != blank %}GTIN: {{ ids.gtin }}{% endif %}
+          {% if ids.model != blank %} · {{ 'gpsr.model' | t }}: {{ ids.model }}{% endif %}
+          {% if ids.batch != blank %} · {{ 'gpsr.batch' | t }}: {{ ids.batch }}{% endif %}
+          {% if ids.serial != blank %} · {{ 'gpsr.serial' | t }}: {{ ids.serial }}{% endif %}
+        </div>
+      </div>
+      {%- endif -%}
+    {%- endif -%}
+
+    {%- if ce == true -%}
+      <div style="margin-bottom:12px;display:inline-flex;align-items:center;gap:6px;font-weight:600;">
+        <span style="border:1px solid {{ block.settings.text_color }};border-radius:3px;padding:1px 6px;font-size:12px;">CE</span>
+        {{ 'gpsr.ce_marked' | t }}
+      </div>
+    {%- endif -%}
+
+    {%- if care != blank -%}
+      <div>
+        <div style="font-weight:600;margin-bottom:2px;">{{ 'gpsr.care' | t }}</div>
+        <div>{{ care | newline_to_br }}</div>
+      </div>
+    {%- endif -%}
+  </div>
+</div>
+
+<script>
+  (function(){
+    var p = document.currentScript.previousElementSibling;
+    if(!p) return;
+    var head = p.querySelector('.gpsr-head');
+    var body = p.querySelector('.gpsr-body');
+    var caret = p.querySelector('.gpsr-caret');
+    if(head && body){
+      head.addEventListener('click', function(){
+        var open = body.hasAttribute('hidden');
+        if(open){ body.removeAttribute('hidden'); caret.textContent='▴'; head.setAttribute('aria-expanded','true'); }
+        else { body.setAttribute('hidden',''); caret.textContent='▾'; head.setAttribute('aria-expanded','false'); }
+      });
+    }
+  })();
+</script>
+{%- endif -%}
+
+{% schema %}
+{
+  "name": "GPSR Compliance",
+  "target": "section",
+  "settings": [
+    { "type": "checkbox", "id": "enabled", "label": "Show GPSR safety panel", "default": true },
+    { "type": "checkbox", "id": "eu_only", "label": "Only show to EU/EEA visitors", "default": false },
+    { "type": "checkbox", "id": "open_default", "label": "Expanded by default", "default": false },
+    { "type": "text", "id": "heading", "label": "Panel heading", "default": "Product safety information" },
+    { "type": "range", "id": "title_size", "label": "Title size", "min": 12, "max": 22, "step": 1, "unit": "px", "default": 16 },
+    { "type": "range", "id": "radius", "label": "Corner radius", "min": 0, "max": 20, "step": 1, "unit": "px", "default": 8 },
+    { "type": "range", "id": "margin_top", "label": "Top spacing", "min": 0, "max": 60, "step": 2, "unit": "px", "default": 20 },
+    { "type": "color", "id": "bg_color", "label": "Background", "default": "#F7F7F7" },
+    { "type": "color", "id": "text_color", "label": "Text", "default": "#1A1A1A" },
+    { "type": "color", "id": "border_color", "label": "Border", "default": "#E1E1E1" },
+    { "type": "color", "id": "warning_color", "label": "Warning accent", "default": "#B23B00" }
+  ]
+}
+{% endschema %}
