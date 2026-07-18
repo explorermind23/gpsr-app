@@ -135,6 +135,10 @@ export default function Products() {
   const { selectedResources, allResourcesSelected, handleSelectionChange } =
     useIndexResourceState(rows);
 
+  const openProduct = useCallback((id) => {
+    navigate(`/app/products/${id.split("/").pop()}`);
+  }, [navigate]);
+
   const applyTemplate = useCallback(() => {
     const fd = new FormData();
     fd.append("intent", "bulkTemplate");
@@ -159,7 +163,7 @@ export default function Products() {
     return (
       <IndexTable.Row id={id} key={id} position={index}
         selected={selectedResources.includes(id)}
-        onClick={() => navigate(`/app/products/${encodeURIComponent(id)}`)}>
+        onClick={() => openProduct(id)}>
         <IndexTable.Cell>
           <InlineStack gap="300" blockAlign="center">
             <Thumbnail source={image || ImageIcon} alt={title} size="small" />
@@ -170,7 +174,7 @@ export default function Products() {
           <Badge tone={meta.tone}>{meta.label}</Badge>
         </IndexTable.Cell>
         <IndexTable.Cell>
-          <Button variant="plain" onClick={() => navigate(`/app/products/${encodeURIComponent(id)}`)}>
+          <Button variant="plain" onClick={() => openProduct(id)}>
             Manage
           </Button>
         </IndexTable.Cell>

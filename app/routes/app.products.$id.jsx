@@ -33,7 +33,8 @@ const PRODUCT_QUERY = `#graphql
 export const loader = async ({ request, params }) => {
   const { admin, session } = await authenticate.admin(request);
   const shop = await getShop(session);
-  const productId = decodeURIComponent(params.id);
+  const raw = decodeURIComponent(params.id);
+  const productId = raw.startsWith("gid://") ? raw : `gid://shopify/Product/${raw}`;
 
   let product = { id: productId, title: "Product", featuredImage: null, variants: [] };
   try {
@@ -68,7 +69,8 @@ export const loader = async ({ request, params }) => {
 export const action = async ({ request, params }) => {
   const { admin, session } = await authenticate.admin(request);
   const shop = await getShop(session);
-  const productId = decodeURIComponent(params.id);
+  const rawId = decodeURIComponent(params.id);
+  const productId = rawId.startsWith("gid://") ? rawId : `gid://shopify/Product/${rawId}`;
   const form = await request.formData();
   const required = shop.euMarketLocales || [];
 
@@ -116,7 +118,7 @@ export const action = async ({ request, params }) => {
     await writeComplianceMetafields(admin, productId, saved, rp, mf);
   } catch (e) { /* metafield sync failed — record is still saved; retry on next save */ }
 
-  return redirect(`/app/products/${encodeURIComponent(productId)}?saved=1`);
+  return redirect(`/app/products/${productId.split("/").pop()}?saved=1`);
 };
 
 export default function ProductEditor() {
