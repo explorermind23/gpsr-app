@@ -1,8 +1,8 @@
 import { json, redirect } from "@remix-run/node";
 import {
-  useLoaderData, useActionData, useNavigation, Form, useSubmit,
+  useLoaderData, useActionData, useNavigation, Form, useSubmit, useSearchParams,
 } from "@remix-run/react";
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import {
   Page, Layout, Card, FormLayout, TextField, Select, Button, Banner,
   BlockStack, InlineStack, Text, Box, Badge, Divider, EmptyState,
@@ -138,16 +138,38 @@ function RpCard({ rp, onDelete }) {
   );
 }
 
+const EMPTY_FORM = {
+  legalName: "", companyName: "", streetAddress: "",
+  city: "", postalCode: "", country: "", email: "", phone: "",
+};
+
 export default function ResponsiblePersons() {
   const { rps, providers } = useLoaderData();
   const actionData = useActionData();
   const nav = useNavigation();
   const submit = useSubmit();
+  const [searchParams, setSearchParams] = useSearchParams();
   const saving = nav.state === "submitting";
+  const justSaved = searchParams.get("saved") === "1";
 
   const errors = actionData?.errors || {};
-  const v = actionData?.values || {};
-  const [role, setRole] = useState(v.role || "EU_RESPONSIBLE_PERSON");
+  const [role, setRole] = useState("EU_RESPONSIBLE_PERSON");
+  const [f, setF] = useState(EMPTY_FORM);
+  const set = useCallback((field) => (value) => setF((p) => ({ ...p, [field]: value })), []);
+
+  // Restore typed values if server-side validation failed
+  useEffect(() => {
+    if (actionData?.values) {
+      const { role: r, ...rest } = actionData.values;
+      setF({ ...EMPTY_FORM, ...rest, companyName: rest.companyName || "" });
+      if (r) setRole(r);
+    }
+  }, [actionData]);
+
+  // Clear form after successful save
+  useEffect(() => {
+    if (justSaved) setF(EMPTY_FORM);
+  }, [justSaved]);
 
   const onDelete = useCallback((id) => {
     const fd = new FormData();
@@ -166,6 +188,12 @@ export default function ResponsiblePersons() {
       backAction={{ content: "Dashboard", url: "/app" }}
     >
       <Layout>
+        {justSaved && (
+          <Layout.Section>
+            <Banner tone="success" title="Responsible Person saved"
+              onDismiss={() => setSearchParams({}, { replace: true })} />
+          </Layout.Section>
+        )}
         <Layout.Section>
           <Banner tone="info">
             <BlockStack gap="100">
@@ -196,26 +224,26 @@ export default function ResponsiblePersons() {
                   />
                   <FormLayout.Group>
                     <TextField label="Legal name" name="legalName" autoComplete="off"
-                      defaultValue={v.legalName} error={errors.legalName} requiredIndicator />
+                      value={f.legalName} onChange={set("legalName")} error={errors.legalName} requiredIndicator />
                     <TextField label="Company name (optional)" name="companyName" autoComplete="off"
-                      defaultValue={v.companyName} />
+                      value={f.companyName} onChange={set("companyName")} />
                   </FormLayout.Group>
                   <TextField label="Street address" name="streetAddress" autoComplete="off"
-                    defaultValue={v.streetAddress} error={errors.streetAddress} requiredIndicator
+                    value={f.streetAddress} onChange={set("streetAddress")} error={errors.streetAddress} requiredIndicator
                     helpText="Full street address. A PO box does not satisfy GPSR." />
                   <FormLayout.Group>
                     <TextField label="City" name="city" autoComplete="off"
-                      defaultValue={v.city} error={errors.city} requiredIndicator />
+                      value={f.city} onChange={set("city")} error={errors.city} requiredIndicator />
                     <TextField label="Postal code" name="postalCode" autoComplete="off"
-                      defaultValue={v.postalCode} error={errors.postalCode} requiredIndicator />
+                      value={f.postalCode} onChange={set("postalCode")} error={errors.postalCode} requiredIndicator />
                     <Select label="Country" name="country" options={countryOpts}
-                      defaultValue={v.country} error={errors.country} />
+                      value={f.country} onChange={set("country")} error={errors.country} />
                   </FormLayout.Group>
                   <FormLayout.Group>
                     <TextField label="Email" name="email" type="email" autoComplete="off"
-                      defaultValue={v.email} error={errors.email} requiredIndicator />
+                      value={f.email} onChange={set("email")} error={errors.email} requiredIndicator />
                     <TextField label="Phone" name="phone" type="tel" autoComplete="off"
-                      defaultValue={v.phone} error={errors.phone} requiredIndicator />
+                      value={f.phone} onChange={set("phone")} error={errors.phone} requiredIndicator />
                   </FormLayout.Group>
                   <InlineStack align="end">
                     <Button variant="primary" submit loading={saving}>Save Responsible Person</Button>
