@@ -2,11 +2,11 @@
 
 client_id = "63226bc8c9449ef95ec553cef9682e6f"
 name = "GPSR Compliance Hub"
-application_url = "https://shopify.dev/apps/default-app-home"
+application_url = "https://gpsr-app-production.up.railway.app"
 embedded = true
 
 [build]
-automatically_update_urls_on_dev = true
+automatically_update_urls_on_dev = false
 
 [webhooks]
 api_version = "2026-10"
@@ -16,4 +16,4 @@ api_version = "2026-10"
 scopes = "read_metaobjects,read_products,write_metaobjects,write_products"
 
 [auth]
-redirect_urls = [ "https://shopify.dev/apps/default-app-home/api/auth" ]
+redirect_urls = [ "https://gpsr-app-production.up.railway.app/auth/callback" ]
