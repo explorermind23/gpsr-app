@@ -1,6 +1,6 @@
 import { json, redirect } from "@remix-run/node";
-import { useLoaderData, useActionData, Form, useNavigation, useSubmit } from "@remix-run/react";
-import { useCallback, useState } from "react";
+import { useLoaderData, useActionData, Form, useNavigation, useSubmit, useSearchParams } from "@remix-run/react";
+import { useCallback, useState, useEffect } from "react";
 import {
   Page, Layout, Card, FormLayout, TextField, Select, Button, Banner, BlockStack,
   InlineStack, Text, Box, Badge, Divider, EmptyState, IndexTable, Icon, InlineGrid,
@@ -97,10 +97,34 @@ export default function Documents() {
   const submit = useSubmit();
   const nav = useNavigation();
   const t = useT();
+  const [searchParams, setSearchParams] = useSearchParams();
   const saving = nav.state === "submitting";
   const errors = actionData?.errors || {};
-  const v = actionData?.values || {};
-  const [kind, setKind] = useState(v.kind || "DECLARATION_OF_CONFORMITY");
+  const justSaved = searchParams.get("saved") === "1";
+
+  const [kind, setKind] = useState("DECLARATION_OF_CONFORMITY");
+  const [retentionYears, setRetentionYears] = useState("10");
+  const [fileName, setFileName] = useState("");
+  const [fileUrl, setFileUrl] = useState("");
+  const [productRef, setProductRef] = useState("");
+
+  // Restore typed values if server-side validation failed
+  useEffect(() => {
+    if (actionData?.values) {
+      const v = actionData.values;
+      if (v.kind) setKind(v.kind);
+      setFileName(v.fileName || "");
+      setFileUrl(v.fileUrl || "");
+      setProductRef(v.productRef || "");
+    }
+  }, [actionData]);
+
+  // Clear form after successful save
+  useEffect(() => {
+    if (justSaved) {
+      setFileName(""); setFileUrl(""); setProductRef("");
+    }
+  }, [justSaved]);
 
   const onDelete = useCallback((id) => {
     const fd = new FormData();
@@ -142,6 +166,12 @@ export default function Documents() {
       backAction={{ content: t("common.back"), url: "/app" }}
     >
       <Layout>
+        {justSaved && (
+          <Layout.Section>
+            <Banner tone="success" title="Document added"
+              onDismiss={() => setSearchParams({}, { replace: true })} />
+          </Layout.Section>
+        )}
         {soon > 0 && (
           <Layout.Section>
             <Banner tone="warning" title={`${soon} document(s) approaching the end of their retention period`}>
@@ -162,17 +192,17 @@ export default function Documents() {
                     <Select label="Document type" name="kind" options={DOC_KINDS} value={kind} onChange={setKind} />
                     <Select label="Keep for" name="retentionYears"
                       options={[{ label: "10 years (GPSR standard)", value: "10" }, { label: "5 years", value: "5" }, { label: "15 years", value: "15" }]}
-                      value="10" onChange={() => {}} />
+                      value={retentionYears} onChange={setRetentionYears} />
                   </FormLayout.Group>
                   <TextField label="Document name" name="fileName" autoComplete="off"
-                    defaultValue={v.fileName} error={errors.fileName} requiredIndicator
+                    value={fileName} onChange={setFileName} error={errors.fileName} requiredIndicator
                     placeholder="e.g. Declaration of Conformity — Wooden Toy Car" />
                   <TextField label="File link (https)" name="fileUrl" autoComplete="off"
-                    defaultValue={v.fileUrl} error={errors.fileUrl} requiredIndicator
+                    value={fileUrl} onChange={setFileUrl} error={errors.fileUrl} requiredIndicator
                     placeholder="https://…"
                     helpText="Link to the file (Shopify Files, Drive, Dropbox, etc.). Direct upload to Shopify Files is coming." />
                   <TextField label="Applies to product / SKU (optional)" name="productRef" autoComplete="off"
-                    defaultValue={v.productRef} placeholder="e.g. Wooden Toy Car, or SKU-1234" />
+                    value={productRef} onChange={setProductRef} placeholder="e.g. Wooden Toy Car, or SKU-1234" />
                   <InlineStack align="end">
                     <Button variant="primary" submit loading={saving}>Add document</Button>
                   </InlineStack>

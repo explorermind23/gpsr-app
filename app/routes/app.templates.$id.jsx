@@ -1,6 +1,6 @@
 import { json, redirect } from "@remix-run/node";
-import { useLoaderData, Form, useNavigation } from "@remix-run/react";
-import { useState } from "react";
+import { useLoaderData, useActionData, Form, useNavigation, useSearchParams } from "@remix-run/react";
+import { useState, useEffect } from "react";
 import {
   Page, Layout, Card, FormLayout, TextField, Select, Checkbox, Button, Banner,
   BlockStack, InlineStack, Text, Box, Badge, InlineGrid,
@@ -66,19 +66,41 @@ export const action = async ({ request, params }) => {
   } else {
     await prisma.complianceTemplate.update({ where: { id: params.id }, data });
   }
-  return redirect("/app/templates");
+  return redirect("/app/templates?saved=1");
 };
 
 export default function TemplateEditor() {
   const { template, isNew, required, pictograms } = useLoaderData();
+  const actionData = useActionData();
   const nav = useNavigation();
   const t = useT();
   const saving = nav.state === "submitting";
   const tpl = template || {};
 
   const savedWarnings = Object.fromEntries((tpl.defaultWarnings || []).map((w) => [w.locale, w.text]));
+  const [name, setName] = useState(tpl.name || "");
+  const [category, setCategory] = useState(tpl.category || "");
+  const [eprCategory, setEprCategory] = useState(tpl.eprCategory || "");
+  const [careInstructions, setCareInstructions] = useState(tpl.careInstructions || "");
+  const [warnVals, setWarnVals] = useState(savedWarnings);
   const [ce, setCe] = useState(!!tpl.requiresCE);
   const [selected, setSelected] = useState(new Set(tpl.defaultPictograms || []));
+
+  // Restore typed values if server-side validation failed
+  useEffect(() => {
+    if (actionData?.values) {
+      const v = actionData.values;
+      setName(v.name || "");
+      setCategory(v.category || "");
+      setEprCategory(v.eprCategory || "");
+      setCareInstructions(v.careInstructions || "");
+      setCe(!!v.requiresCE);
+      if (v.defaultWarnings) {
+        setWarnVals(Object.fromEntries(v.defaultWarnings.map((w) => [w.locale, w.text])));
+      }
+      if (v.defaultPictograms) setSelected(new Set(v.defaultPictograms));
+    }
+  }, [actionData]);
 
   const togglePict = (key) => {
     setSelected((prev) => {
@@ -99,22 +121,25 @@ export default function TemplateEditor() {
         <Layout>
           <Layout.Section>
             <BlockStack gap="400">
+              {actionData?.error && (
+                <Banner tone="critical" title={actionData.error} />
+              )}
               <Card>
                 <BlockStack gap="400">
                   <Text as="h2" variant="headingMd">Template basics</Text>
                   <FormLayout>
                     <FormLayout.Group>
                       <TextField label="Template name" name="name" autoComplete="off"
-                        defaultValue={tpl.name} requiredIndicator placeholder="e.g. Wooden toys" />
+                        value={name} onChange={setName} requiredIndicator placeholder="e.g. Wooden toys" />
                       <Select label="Category" name="category"
                         options={[{ label: "Select…", value: "" }, ...CATEGORIES.map((c) => ({ label: c, value: c }))]}
-                        defaultValue={tpl.category || ""} onChange={() => {}} />
+                        value={category} onChange={setCategory} />
                     </FormLayout.Group>
                     <Checkbox label="Products in this category require CE marking"
                       name="requiresCE" checked={ce} onChange={setCe}
                       helpText="If ticked, a product using this template stays Incomplete until CE is confirmed." />
                     <TextField label="EPR category (optional)" name="eprCategory"
-                      autoComplete="off" defaultValue={tpl.eprCategory || ""}
+                      autoComplete="off" value={eprCategory} onChange={setEprCategory}
                       helpText="e.g. packaging, batteries, electronics — used for Amazon/TikTok EPR fields." />
                   </FormLayout>
                 </BlockStack>
@@ -169,7 +194,8 @@ export default function TemplateEditor() {
                           <TextField key={loc} multiline={2} autoComplete="off"
                             name={`warning_${loc}`}
                             label={`${lang ? lang.native : loc} (${lang ? lang.name : loc})`}
-                            defaultValue={savedWarnings[loc] || ""}
+                            value={warnVals[loc] || ""}
+                            onChange={(val) => setWarnVals((p) => ({ ...p, [loc]: val }))}
                             placeholder="Default warning applied to products using this template" />
                         );
                       })}
@@ -182,7 +208,7 @@ export default function TemplateEditor() {
                 <BlockStack gap="300">
                   <Text as="h2" variant="headingMd">Care & usage</Text>
                   <TextField label="Care instructions" name="careInstructions" multiline={3}
-                    autoComplete="off" defaultValue={tpl.careInstructions || ""} labelHidden />
+                    autoComplete="off" value={careInstructions} onChange={setCareInstructions} labelHidden />
                 </BlockStack>
               </Card>
             </BlockStack>

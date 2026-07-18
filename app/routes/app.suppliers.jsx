@@ -1,6 +1,6 @@
 import { json, redirect } from "@remix-run/node";
-import { useLoaderData, useActionData, Form, useNavigation, useSubmit } from "@remix-run/react";
-import { useCallback, useState } from "react";
+import { useLoaderData, useActionData, Form, useNavigation, useSubmit, useSearchParams } from "@remix-run/react";
+import { useCallback, useState, useEffect } from "react";
 import {
   Page, Layout, Card, FormLayout, TextField, Button, Banner, BlockStack,
   InlineStack, Text, Box, Badge, Divider, EmptyState, Icon,
@@ -46,7 +46,7 @@ export const action = async ({ request }) => {
     const supplierEmail = String(form.get("supplierEmail") || "").trim();
     const productRef = String(form.get("productRef") || "").trim() || null;
     if (!supplierEmail || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(supplierEmail)) {
-      return json({ error: "Enter a valid supplier email." }, { status: 400 });
+      return json({ error: "Enter a valid supplier email.", values: { supplierEmail, productRef } }, { status: 400 });
     }
     await prisma.supplierDataRequest.create({
       data: { shopId: shop.id, supplierEmail, productRef, token: makeToken(), status: "sent" },
@@ -62,8 +62,28 @@ export default function Suppliers() {
   const submit = useSubmit();
   const nav = useNavigation();
   const t = useT();
+  const [searchParams, setSearchParams] = useSearchParams();
   const busy = nav.state === "submitting";
+  const justCreated = searchParams.get("created") === "1";
   const [copied, setCopied] = useState(null);
+
+  const [supplierEmail, setSupplierEmail] = useState("");
+  const [productRef, setProductRef] = useState("");
+
+  // Restore typed values if server-side validation failed
+  useEffect(() => {
+    if (actionData?.values) {
+      setSupplierEmail(actionData.values.supplierEmail || "");
+      setProductRef(actionData.values.productRef || "");
+    }
+  }, [actionData]);
+
+  // Clear form after successful creation
+  useEffect(() => {
+    if (justCreated) {
+      setSupplierEmail(""); setProductRef("");
+    }
+  }, [justCreated]);
 
   const onDelete = useCallback((id) => {
     const fd = new FormData();
@@ -84,6 +104,12 @@ export default function Suppliers() {
       subtitle="Ask your suppliers to fill in the safety data you're missing — send them a secure form link."
       backAction={{ content: t("common.back"), url: "/app" }}>
       <Layout>
+        {justCreated && (
+          <Layout.Section>
+            <Banner tone="success" title="Request link created — copy it below and send it to your supplier"
+              onDismiss={() => setSearchParams({}, { replace: true })} />
+          </Layout.Section>
+        )}
         <Layout.Section>
           <Card>
             <BlockStack gap="400">
@@ -94,8 +120,10 @@ export default function Suppliers() {
                 <FormLayout>
                   <FormLayout.Group>
                     <TextField label="Supplier email" name="supplierEmail" type="email" autoComplete="off"
+                      value={supplierEmail} onChange={setSupplierEmail}
                       placeholder="supplier@factory.com" requiredIndicator />
                     <TextField label="Product / SKU (optional)" name="productRef" autoComplete="off"
+                      value={productRef} onChange={setProductRef}
                       placeholder="e.g. Wooden Toy Car" />
                   </FormLayout.Group>
                   <Text as="p" variant="bodySm" tone="subdued">

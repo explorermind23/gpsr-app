@@ -1,6 +1,6 @@
 import { json, redirect } from "@remix-run/node";
-import { useLoaderData, useActionData, Form, useNavigation, useSubmit } from "@remix-run/react";
-import { useCallback, useState } from "react";
+import { useLoaderData, useActionData, Form, useNavigation, useSubmit, useSearchParams } from "@remix-run/react";
+import { useCallback, useState, useEffect } from "react";
 import {
   Page, Layout, Card, FormLayout, TextField, Button, Banner, BlockStack,
   InlineStack, Text, Box, Badge, Divider, EmptyState, InlineGrid, Icon, Checkbox, List,
@@ -77,16 +77,41 @@ const PLANS = [
   { key: "PRO", name: "Pro", price: "€39.99/mo", tagline: "Multi-marketplace", features: ["Unlimited products", "Amazon · TikTok · eBay · Etsy · Temu export", "Document vault (10-yr)", "Incident log", "Priority support"], highlight: true },
 ];
 
+const EMPTY_MFR = {
+  legalName: "", tradeName: "", streetAddress: "",
+  city: "", postalCode: "", country: "", email: "", phone: "",
+};
+
 export default function Settings() {
   const { shop, manufacturers } = useLoaderData();
   const actionData = useActionData();
   const submit = useSubmit();
   const nav = useNavigation();
   const t = useT();
+  const [searchParams, setSearchParams] = useSearchParams();
   const saving = nav.state === "submitting";
   const errors = actionData?.errors || {};
-  const v = actionData?.values || {};
+  const saved = searchParams.get("saved"); // "prefs" | "mfr" | null
   const [sellsEU, setSellsEU] = useState(shop.sellsIntoEU);
+
+  const [f, setF] = useState(EMPTY_MFR);
+  const set = useCallback((field) => (value) => setF((p) => ({ ...p, [field]: value })), []);
+
+  // Restore typed values if server-side validation failed
+  useEffect(() => {
+    if (actionData?.values) {
+      const rest = actionData.values;
+      setF({
+        ...EMPTY_MFR, ...rest,
+        tradeName: rest.tradeName || "", email: rest.email || "", phone: rest.phone || "",
+      });
+    }
+  }, [actionData]);
+
+  // Clear manufacturer form after successful save
+  useEffect(() => {
+    if (saved === "mfr") setF(EMPTY_MFR);
+  }, [saved]);
 
   const onDelete = useCallback((id) => {
     const fd = new FormData();
@@ -95,9 +120,22 @@ export default function Settings() {
     submit(fd, { method: "post" });
   }, [submit]);
 
+  const dismissSaved = useCallback(() => setSearchParams({}, { replace: true }), [setSearchParams]);
+
   return (
     <Page title={t("nav.settings")} backAction={{ content: t("common.back"), url: "/app" }}>
       <Layout>
+        {saved === "mfr" && (
+          <Layout.Section>
+            <Banner tone="success" title="Manufacturer added" onDismiss={dismissSaved} />
+          </Layout.Section>
+        )}
+        {saved === "prefs" && (
+          <Layout.Section>
+            <Banner tone="success" title="Preferences saved" onDismiss={dismissSaved} />
+          </Layout.Section>
+        )}
+
         {/* Manufacturers */}
         <Layout.Section>
           <Card>
@@ -117,21 +155,26 @@ export default function Settings() {
                 <FormLayout>
                   <FormLayout.Group>
                     <TextField label="Manufacturer name" name="legalName" autoComplete="off"
-                      defaultValue={v.legalName} error={errors.legalName} requiredIndicator />
-                    <TextField label="Trade name (optional)" name="tradeName" autoComplete="off" defaultValue={v.tradeName} />
+                      value={f.legalName} onChange={set("legalName")} error={errors.legalName} requiredIndicator />
+                    <TextField label="Trade name (optional)" name="tradeName" autoComplete="off"
+                      value={f.tradeName} onChange={set("tradeName")} />
                   </FormLayout.Group>
                   <TextField label="Street address" name="streetAddress" autoComplete="off"
-                    defaultValue={v.streetAddress} error={errors.streetAddress} requiredIndicator />
+                    value={f.streetAddress} onChange={set("streetAddress")} error={errors.streetAddress} requiredIndicator />
                   <FormLayout.Group>
-                    <TextField label="City" name="city" autoComplete="off" defaultValue={v.city} error={errors.city} requiredIndicator />
-                    <TextField label="Postal code" name="postalCode" autoComplete="off" defaultValue={v.postalCode} />
+                    <TextField label="City" name="city" autoComplete="off"
+                      value={f.city} onChange={set("city")} error={errors.city} requiredIndicator />
+                    <TextField label="Postal code" name="postalCode" autoComplete="off"
+                      value={f.postalCode} onChange={set("postalCode")} />
                     <TextField label="Country" name="country" autoComplete="off"
-                      defaultValue={v.country} error={errors.country} requiredIndicator
+                      value={f.country} onChange={set("country")} error={errors.country} requiredIndicator
                       helpText="Manufacturers may be anywhere in the world." />
                   </FormLayout.Group>
                   <FormLayout.Group>
-                    <TextField label="Email (optional)" name="email" type="email" autoComplete="off" defaultValue={v.email} />
-                    <TextField label="Phone (optional)" name="phone" type="tel" autoComplete="off" defaultValue={v.phone} />
+                    <TextField label="Email (optional)" name="email" type="email" autoComplete="off"
+                      value={f.email} onChange={set("email")} />
+                    <TextField label="Phone (optional)" name="phone" type="tel" autoComplete="off"
+                      value={f.phone} onChange={set("phone")} />
                   </FormLayout.Group>
                   <InlineStack align="end">
                     <Button variant="primary" submit loading={saving}>Add manufacturer</Button>
@@ -207,7 +250,7 @@ export default function Settings() {
                       <Text as="span" variant="headingLg">{p.price}</Text>
                       <Text as="span" variant="bodySm" tone="subdued">{p.tagline}</Text>
                       <List type="bullet">
-                        {p.features.map((f) => <List.Item key={f}>{f}</List.Item>)}
+                        {p.features.map((feat) => <List.Item key={feat}>{feat}</List.Item>)}
                       </List>
                       <Button variant={p.highlight ? "primary" : "secondary"}
                         disabled={shop.plan === p.key} fullWidth>

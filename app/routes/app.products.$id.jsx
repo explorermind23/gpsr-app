@@ -1,5 +1,5 @@
 import { json, redirect } from "@remix-run/node";
-import { useLoaderData, useActionData, Form, useNavigation, useFetcher } from "@remix-run/react";
+import { useLoaderData, useActionData, Form, useNavigation, useFetcher, useSearchParams } from "@remix-run/react";
 import { useState, useEffect } from "react";
 import {
   Page, Layout, Card, FormLayout, TextField, Select, Checkbox, Button, Banner,
@@ -116,17 +116,27 @@ export const action = async ({ request, params }) => {
     await writeComplianceMetafields(admin, productId, saved, rp, mf);
   } catch (e) { /* metafield sync failed — record is still saved; retry on next save */ }
 
-  return redirect("/app/products");
+  return redirect(`/app/products/${encodeURIComponent(productId)}?saved=1`);
 };
 
 export default function ProductEditor() {
   const { product, record, rps, manufacturers, required, compliance, firstBarcode } = useLoaderData();
   const nav = useNavigation();
   const t = useT();
+  const [searchParams, setSearchParams] = useSearchParams();
   const saving = nav.state === "submitting";
+  const justSaved = searchParams.get("saved") === "1";
   const r = record || {};
   const savedWarnings = Object.fromEntries((r.warnings || []).map((w) => [w.locale, w.text]));
 
+  const [rpId, setRpId] = useState(r.responsiblePersonId || "");
+  const [mfId, setMfId] = useState(r.manufacturerId || "");
+  const [gtin, setGtin] = useState(r.gtin || firstBarcode);
+  const [modelNumber, setModelNumber] = useState(r.modelNumber || "");
+  const [batchNumber, setBatchNumber] = useState(r.batchNumber || "");
+  const [serialNumber, setSerialNumber] = useState(r.serialNumber || "");
+  const [careInstructions, setCareInstructions] = useState(r.careInstructions || "");
+  const [eprRegistrationNo, setEprRegistrationNo] = useState(r.eprRegistrationNo || "");
   const [ce, setCe] = useState(!!r.ceMarked);
   const [picts, setPicts] = useState(new Set(r.pictograms || []));
   const togglePict = (key) => setPicts((prev) => {
@@ -169,6 +179,10 @@ export default function ProductEditor() {
         <Layout>
           <Layout.Section>
             <BlockStack gap="400">
+              {justSaved && (
+                <Banner tone="success" title="Compliance data saved"
+                  onDismiss={() => setSearchParams({}, { replace: true })} />
+              )}
               {rps.length === 0 && (
                 <Banner tone="warning" title="No Responsible Person yet"
                   action={{ content: "Add one", url: "/app/responsible-persons" }}>
@@ -181,9 +195,9 @@ export default function ProductEditor() {
                   <Text as="h2" variant="headingMd">Who is responsible</Text>
                   <FormLayout>
                     <Select label="Responsible Person" name="responsiblePersonId"
-                      options={rpOptions} value={r.responsiblePersonId || ""} onChange={() => {}} />
+                      options={rpOptions} value={rpId} onChange={setRpId} />
                     <Select label="Manufacturer" name="manufacturerId"
-                      options={mfOptions} value={r.manufacturerId || ""} onChange={() => {}}
+                      options={mfOptions} value={mfId} onChange={setMfId}
                       helpText={manufacturers.length === 0 ? "Add manufacturers in Settings." : undefined} />
                   </FormLayout>
                 </BlockStack>
@@ -196,13 +210,16 @@ export default function ProductEditor() {
                   <FormLayout>
                     <FormLayout.Group>
                       <TextField label="GTIN / Barcode" name="gtin" autoComplete="off"
-                        defaultValue={r.gtin || firstBarcode}
+                        value={gtin} onChange={setGtin}
                         helpText={firstBarcode && !r.gtin ? "Pre-filled from variant barcode." : undefined} />
-                      <TextField label="Model number" name="modelNumber" autoComplete="off" defaultValue={r.modelNumber || ""} />
+                      <TextField label="Model number" name="modelNumber" autoComplete="off"
+                        value={modelNumber} onChange={setModelNumber} />
                     </FormLayout.Group>
                     <FormLayout.Group>
-                      <TextField label="Batch number" name="batchNumber" autoComplete="off" defaultValue={r.batchNumber || ""} />
-                      <TextField label="Serial number" name="serialNumber" autoComplete="off" defaultValue={r.serialNumber || ""} />
+                      <TextField label="Batch number" name="batchNumber" autoComplete="off"
+                        value={batchNumber} onChange={setBatchNumber} />
+                      <TextField label="Serial number" name="serialNumber" autoComplete="off"
+                        value={serialNumber} onChange={setSerialNumber} />
                     </FormLayout.Group>
                   </FormLayout>
                 </BlockStack>
@@ -282,9 +299,9 @@ export default function ProductEditor() {
                     <Checkbox label="This product carries CE marking (toys, electronics, PPE)"
                       name="ceMarked" checked={ce} onChange={setCe} />
                     <TextField label="Care & usage instructions" name="careInstructions" multiline={3}
-                      autoComplete="off" defaultValue={r.careInstructions || ""} />
+                      autoComplete="off" value={careInstructions} onChange={setCareInstructions} />
                     <TextField label="EPR registration number (optional)" name="eprRegistrationNo"
-                      autoComplete="off" defaultValue={r.eprRegistrationNo || ""}
+                      autoComplete="off" value={eprRegistrationNo} onChange={setEprRegistrationNo}
                       helpText="Some markets/categories ask for this on Amazon and TikTok." />
                   </FormLayout>
                 </BlockStack>

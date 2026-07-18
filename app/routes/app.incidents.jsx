@@ -1,6 +1,6 @@
 import { json, redirect } from "@remix-run/node";
-import { useLoaderData, useActionData, Form, useNavigation, useSubmit } from "@remix-run/react";
-import { useCallback, useState } from "react";
+import { useLoaderData, useActionData, Form, useNavigation, useSubmit, useSearchParams } from "@remix-run/react";
+import { useCallback, useState, useEffect } from "react";
 import {
   Page, Layout, Card, FormLayout, TextField, Select, Checkbox, Button, Banner,
   BlockStack, InlineStack, Text, Box, Badge, Divider, EmptyState, IndexTable, Icon,
@@ -84,11 +84,35 @@ export default function Incidents() {
   const submit = useSubmit();
   const nav = useNavigation();
   const t = useT();
+  const [searchParams, setSearchParams] = useSearchParams();
   const saving = nav.state === "submitting";
   const errors = actionData?.errors || {};
-  const v = actionData?.values || {};
-  const [type, setType] = useState(v.type || "COMPLAINT");
+  const justSaved = searchParams.get("saved") === "1";
+
+  const [type, setType] = useState("COMPLAINT");
+  const [occurredAt, setOccurredAt] = useState(new Date().toISOString().slice(0, 10));
+  const [description, setDescription] = useState("");
+  const [productRef, setProductRef] = useState("");
+  const [actionTaken, setActionTaken] = useState("");
   const [reported, setReported] = useState(false);
+
+  // Restore typed values if server-side validation failed
+  useEffect(() => {
+    if (actionData?.values) {
+      const v = actionData.values;
+      if (v.type) setType(v.type);
+      setDescription(v.description || "");
+      setProductRef(v.productRef || "");
+      setActionTaken(v.actionTaken || "");
+    }
+  }, [actionData]);
+
+  // Clear form after successful save
+  useEffect(() => {
+    if (justSaved) {
+      setDescription(""); setProductRef(""); setActionTaken(""); setReported(false);
+    }
+  }, [justSaved]);
 
   const onDelete = useCallback((id) => {
     const fd = new FormData();
@@ -135,6 +159,12 @@ export default function Incidents() {
       backAction={{ content: t("common.back"), url: "/app" }}
     >
       <Layout>
+        {justSaved && (
+          <Layout.Section>
+            <Banner tone="success" title="Incident logged"
+              onDismiss={() => setSearchParams({}, { replace: true })} />
+          </Layout.Section>
+        )}
         {unreportedSerious > 0 && (
           <Layout.Section>
             <Banner tone="critical" title={`${unreportedSerious} serious incident(s) not reported to authorities`}>
@@ -157,15 +187,16 @@ export default function Incidents() {
                   <FormLayout.Group>
                     <Select label="Incident type" name="type" options={TYPES} value={type} onChange={setType} />
                     <TextField label="Date it occurred" name="occurredAt" type="date" autoComplete="off"
-                      defaultValue={new Date().toISOString().slice(0, 10)} />
+                      value={occurredAt} onChange={setOccurredAt} />
                   </FormLayout.Group>
                   <TextField label="What happened" name="description" multiline={3} autoComplete="off"
-                    defaultValue={v.description} error={errors.description} requiredIndicator
+                    value={description} onChange={setDescription} error={errors.description} requiredIndicator
                     placeholder="Describe the complaint, incident or authority request." />
                   <TextField label="Product / SKU (optional)" name="productRef" autoComplete="off"
-                    defaultValue={v.productRef} placeholder="e.g. Wooden Toy Car, or SKU-1234" />
+                    value={productRef} onChange={setProductRef} placeholder="e.g. Wooden Toy Car, or SKU-1234" />
                   <TextField label="Action taken (optional)" name="actionTaken" multiline={2} autoComplete="off"
-                    defaultValue={v.actionTaken} placeholder="e.g. Refunded customer, paused listing, contacted supplier." />
+                    value={actionTaken} onChange={setActionTaken}
+                    placeholder="e.g. Refunded customer, paused listing, contacted supplier." />
                   <Checkbox label="Reported to authorities (Safety Business Gateway)"
                     name="reportedToAuthority" checked={reported} onChange={setReported}
                     helpText="Required for injuries and recalls involving a safety risk." />
