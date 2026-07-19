@@ -1,5 +1,6 @@
 import { json } from "@remix-run/node";
-import { useLoaderData } from "@remix-run/react";
+import { useLoaderData, useRevalidator } from "@remix-run/react";
+import { useState } from "react";
 import {
   Page, Layout, Card, BlockStack, InlineStack, Text, Badge, Button, Box, Icon,
   Divider, InlineGrid, Banner,
@@ -29,7 +30,14 @@ export const loader = async ({ request }) => {
     prisma.channelExport.findMany({ where: { shopId: shop.id }, orderBy: { createdAt: "desc" }, take: 8 }),
   ]);
 
-  return json({ readyCount, publishedCount, recentExports });
+  const filenames = Object.fromEntries(
+    Object.entries(CHANNEL_META).map(([k, m]) => [k, m.filename])
+  );
+  const formats = Object.fromEntries(
+    Object.entries(CHANNEL_META).map(([k, m]) => [k, m.format])
+  );
+
+  return json({ readyCount, publishedCount, recentExports, filenames, formats });
 };
 
 const MARKETPLACES = [
@@ -41,8 +49,34 @@ const MARKETPLACES = [
 ];
 
 export default function Channels() {
-  const { readyCount, publishedCount, recentExports } = useLoaderData();
+  const { readyCount, publishedCount, recentExports, filenames, formats } = useLoaderData();
   const t = useT();
+  const revalidator = useRevalidator();
+  const [downloading, setDownloading] = useState(null);
+  const [exportError, setExportError] = useState(null);
+
+  const download = async (key) => {
+    setDownloading(key);
+    setExportError(null);
+    try {
+      const res = await fetch(`/api/export/${key}`);
+      if (!res.ok) throw new Error(`Export failed (${res.status})`);
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filenames[key] || `${key}-gpsr-export.csv`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      revalidator.revalidate(); // refresh "Recent exports"
+    } catch (e) {
+      setExportError(`Could not generate the ${key} export. Try again — if it keeps failing, re-open the app.`);
+    } finally {
+      setDownloading(null);
+    }
+  };
 
   return (
     <Page
@@ -58,6 +92,12 @@ export default function Channels() {
             </Text>
           </Banner>
         </Layout.Section>
+
+        {exportError && (
+          <Layout.Section>
+            <Banner tone="critical" title={exportError} onDismiss={() => setExportError(null)} />
+          </Layout.Section>
+        )}
 
         {/* Shopify — native, live */}
         <Layout.Section>
@@ -99,13 +139,14 @@ export default function Channels() {
                         <InlineStack gap="200" blockAlign="center">
                           <Text as="span" variant="bodyMd" fontWeight="semibold">{m.label}</Text>
                           <Badge tone={m.tone === "attention" ? "attention" : undefined} size="small">
-                            {CHANNEL_META[m.key].format}
+                            {formats[m.key]}
                           </Badge>
                         </InlineStack>
                         <Text as="span" variant="bodySm" tone="subdued">{m.desc}</Text>
                       </BlockStack>
-                      <Button icon={ExportIcon} url={`/api/export/${m.key}`} external
-                        disabled={readyCount === 0}>
+                      <Button icon={ExportIcon} onClick={() => download(m.key)}
+                        loading={downloading === m.key}
+                        disabled={readyCount === 0 || (downloading && downloading !== m.key)}>
                         {`Export ${readyCount} product(s)`}
                       </Button>
                     </InlineStack>
