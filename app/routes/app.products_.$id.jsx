@@ -99,11 +99,17 @@ export const action = async ({ request, params }) => {
 
   const { status, missingFields } = computeCompliance(data, required);
 
-  const saved = await prisma.productCompliance.upsert({
-    where: { shopId_shopifyProductId_shopifyVariantId: { shopId: shop.id, shopifyProductId: productId, shopifyVariantId: null } },
-    create: { shopId: shop.id, shopifyProductId: productId, ...data, status, missingFields, lastScannedAt: new Date() },
-    update: { ...data, status, missingFields, lastScannedAt: new Date() },
+  const existing = await prisma.productCompliance.findFirst({
+    where: { shopId: shop.id, shopifyProductId: productId, shopifyVariantId: null },
   });
+  const saved = existing
+    ? await prisma.productCompliance.update({
+        where: { id: existing.id },
+        data: { ...data, status, missingFields, lastScannedAt: new Date() },
+      })
+    : await prisma.productCompliance.create({
+        data: { shopId: shop.id, shopifyProductId: productId, ...data, status, missingFields, lastScannedAt: new Date() },
+      });
   await prisma.auditEvent.create({
     data: { shopId: shop.id, actor: session.shop, action: "product.compliance.saved", target: productId },
   });

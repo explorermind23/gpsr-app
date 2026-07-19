@@ -99,19 +99,27 @@ export const action = async ({ request }) => {
     const tpl = await prisma.complianceTemplate.findUnique({ where: { id: templateId } });
     if (tpl) {
       for (const pid of ids) {
-        await prisma.productCompliance.upsert({
-          where: { shopId_shopifyProductId_shopifyVariantId: { shopId: shop.id, shopifyProductId: pid, shopifyVariantId: null } },
-          create: {
-            shopId: shop.id, shopifyProductId: pid, templateId: tpl.id,
-            warnings: tpl.defaultWarnings, pictograms: tpl.defaultPictograms,
-            careInstructions: tpl.careInstructions, ceMarked: false, appliedByBulk: true,
-          },
-          update: {
-            templateId: tpl.id, warnings: tpl.defaultWarnings,
-            pictograms: tpl.defaultPictograms, careInstructions: tpl.careInstructions,
-            appliedByBulk: true,
-          },
+        const existing = await prisma.productCompliance.findFirst({
+          where: { shopId: shop.id, shopifyProductId: pid, shopifyVariantId: null },
         });
+        if (existing) {
+          await prisma.productCompliance.update({
+            where: { id: existing.id },
+            data: {
+              templateId: tpl.id, warnings: tpl.defaultWarnings,
+              pictograms: tpl.defaultPictograms, careInstructions: tpl.careInstructions,
+              appliedByBulk: true,
+            },
+          });
+        } else {
+          await prisma.productCompliance.create({
+            data: {
+              shopId: shop.id, shopifyProductId: pid, templateId: tpl.id,
+              warnings: tpl.defaultWarnings, pictograms: tpl.defaultPictograms,
+              careInstructions: tpl.careInstructions, ceMarked: false, appliedByBulk: true,
+            },
+          });
+        }
       }
       await prisma.auditEvent.create({
         data: { shopId: shop.id, actor: session.shop, action: "template.bulkApplied", target: `${ids.length} products`, meta: { templateId } },
