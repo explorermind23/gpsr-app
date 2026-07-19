@@ -11,6 +11,7 @@ import { authenticate } from "../shopify.server";
 import prisma from "../db.server";
 import { computeCompliance, STATUS_META } from "../lib/compliance";
 import { useT } from "../lib/i18n/context";
+import { assertProductAllowance } from "../lib/billing";
 
 async function getShop(session) {
   return (
@@ -97,8 +98,11 @@ export const action = async ({ request }) => {
     const templateId = String(form.get("templateId"));
     const ids = form.getAll("ids").map(String);
     const tpl = await prisma.complianceTemplate.findUnique({ where: { id: templateId } });
+    let skipped = 0;
     if (tpl) {
       for (const pid of ids) {
+        const gate = await assertProductAllowance(shop, pid);
+        if (!gate.allowed) { skipped += 1; continue; }
         const existing = await prisma.productCompliance.findFirst({
           where: { shopId: shop.id, shopifyProductId: pid, shopifyVariantId: null },
         });
@@ -125,7 +129,7 @@ export const action = async ({ request }) => {
         data: { shopId: shop.id, actor: session.shop, action: "template.bulkApplied", target: `${ids.length} products`, meta: { templateId } },
       });
     }
-    return json({ ok: true, applied: ids.length });
+    return json({ ok: true, applied: ids.length - skipped, skipped });
   }
   return json({ ok: false });
 };

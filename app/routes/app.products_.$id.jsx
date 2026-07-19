@@ -13,6 +13,7 @@ import { languageByCode } from "../lib/languages";
 import { PICTOGRAMS } from "../lib/pictograms";
 import { ensureGpsrDefinitions, writeComplianceMetafields } from "../lib/shopify-metafields";
 import { useT } from "../lib/i18n/context";
+import { assertProductAllowance } from "../lib/billing";
 
 async function getShop(session) {
   return (
@@ -99,6 +100,12 @@ export const action = async ({ request, params }) => {
 
   const { status, missingFields } = computeCompliance(data, required);
 
+  // Lifetime plan limit: consumes a ledger slot on first save of this product.
+  const gate = await assertProductAllowance(shop, productId);
+  if (!gate.allowed) {
+    return json({ limitError: gate.message }, { status: 402 });
+  }
+
   const existing = await prisma.productCompliance.findFirst({
     where: { shopId: shop.id, shopifyProductId: productId, shopifyVariantId: null },
   });
@@ -129,6 +136,7 @@ export const action = async ({ request, params }) => {
 
 export default function ProductEditor() {
   const { product, record, rps, manufacturers, required, compliance, firstBarcode } = useLoaderData();
+  const actionData = useActionData();
   const nav = useNavigation();
   const t = useT();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -187,6 +195,12 @@ export default function ProductEditor() {
         <Layout>
           <Layout.Section>
             <BlockStack gap="400">
+              {actionData?.limitError && (
+                <Banner tone="critical" title="Plan limit reached"
+                  action={{ content: "View plans", url: "/app/billing" }}>
+                  <Text as="p">{actionData.limitError}</Text>
+                </Banner>
+              )}
               {justSaved && (
                 <Banner tone="success" title="Compliance data saved"
                   onDismiss={() => setSearchParams({}, { replace: true })} />

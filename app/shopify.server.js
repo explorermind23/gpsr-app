@@ -2,6 +2,7 @@ import "@shopify/shopify-app-remix/adapters/node";
 import {
   ApiVersion,
   AppDistribution,
+  BillingInterval,
   shopifyApp,
 } from "@shopify/shopify-app-remix/server";
 import { PrismaSessionStorage } from "@shopify/shopify-app-session-storage-prisma";
@@ -16,6 +17,20 @@ const shopify = shopifyApp({
   authPathPrefix: "/auth",
   sessionStorage: new PrismaSessionStorage(prisma),
   distribution: AppDistribution.AppStore,
+  billing: {
+    STARTER_MONTHLY: {
+      lineItems: [{ amount: 9.95, currencyCode: "USD", interval: BillingInterval.Every30Days }],
+    },
+    STARTER_ANNUAL: {
+      lineItems: [{ amount: 89.55, currencyCode: "USD", interval: BillingInterval.Annual }],
+    },
+    PRO_MONTHLY: {
+      lineItems: [{ amount: 24.95, currencyCode: "USD", interval: BillingInterval.Every30Days }],
+    },
+    PRO_ANNUAL: {
+      lineItems: [{ amount: 224.55, currencyCode: "USD", interval: BillingInterval.Annual }],
+    },
+  },
   future: { unstable_newEmbeddedAuthStrategy: true, removeRest: true },
   ...(process.env.SHOP_CUSTOM_DOMAIN
     ? { customShopDomains: [process.env.SHOP_CUSTOM_DOMAIN] }

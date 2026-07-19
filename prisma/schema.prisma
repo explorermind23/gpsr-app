@@ -1,17 +1,15 @@
 // GPSR Compliance Hub — data model
 // Designed multi-platform (Shopify + Amazon + TikTok + eBay/Etsy/Temu) and DPP-ready.
-// Every feature discussed (Tiers 1-3) maps to a field or table here so nothing is dropped.
 
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "postgresql" // Railway Postgres in prod; SQLite for local dev via env
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
-// ── Shopify session (required by @shopify/shopify-app-remix) ──────────────
 model Session {
   id            String    @id
   shop          String
@@ -30,19 +28,22 @@ model Session {
   emailVerified Boolean?  @default(false)
 }
 
-// ── The merchant's shop + subscription/billing state ─────────────────────
 model Shop {
-  id                String   @id @default(cuid())
-  shopDomain        String   @unique
-  plan              Plan     @default(FREE)      // decoy-tiered pricing: FREE/STARTER/PRO
-  planActivatedAt   DateTime?
-  installedAt       DateTime @default(now())
-  onboardingDone    Boolean  @default(false)
-  sellsIntoEU       Boolean  @default(true)      // feature 15: geo-toggle master switch
-  defaultLocale     String   @default("en")
-  euMarketLocales   String[] @default([])        // feature 12/29: which country languages active
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  id                   String   @id @default(cuid())
+  shopDomain           String   @unique
+  plan                 Plan     @default(FREE)
+  planInterval         String   @default("MONTHLY") // MONTHLY | ANNUAL
+  planActivatedAt      DateTime?
+  installedAt          DateTime @default(now())
+  onboardingDone       Boolean  @default(false)
+  sellsIntoEU          Boolean  @default(true)
+  defaultLocale        String   @default("en")
+  euMarketLocales      String[] @default([])
+  defaultRetentionYears Int     @default(10)
+  recallAlertsEnabled  Boolean  @default(true)
+  weeklyDigestEnabled  Boolean  @default(false)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
 
   responsiblePersons ResponsiblePerson[]
   manufacturers      Manufacturer[]
@@ -53,6 +54,7 @@ model Shop {
   incidentLogs       IncidentLog[]
   auditEvents        AuditEvent[]
   supplierRequests   SupplierDataRequest[]
+  productLedger      ProductLedgerEntry[]
 }
 
 enum Plan {
@@ -61,22 +63,34 @@ enum Plan {
   PRO
 }
 
-// ── Responsible Person (Tier 1 core; feature 1, 27, 30) ──────────────────
+// Lifetime product ledger: one row per unique product that EVER had compliance
+// data. Rows are never deleted when products/compliance are deleted — this is
+// what enforces the lifetime free cap (10) and Starter cap (250).
+model ProductLedgerEntry {
+  id               String   @id @default(cuid())
+  shopId           String
+  shop             Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  shopifyProductId String
+  createdAt        DateTime @default(now())
+
+  @@unique([shopId, shopifyProductId])
+}
+
 model ResponsiblePerson {
   id             String   @id @default(cuid())
   shopId         String
   shop           Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
-  role           RpRole   @default(EU_RESPONSIBLE_PERSON) // EU vs UK (feature 30)
+  role           RpRole   @default(EU_RESPONSIBLE_PERSON)
   legalName      String
   companyName    String?
   streetAddress  String
   city           String
   postalCode     String
-  country        String   // must be EU/EEA for EU role; UK for UK role
+  country        String
   email          String
   phone          String
-  isThirdParty   Boolean  @default(false)  // feature 27: sourced via RP directory/referral
-  providerName   String?                    // e.g. "Taxually", referral partner
+  isThirdParty   Boolean  @default(false)
+  providerName   String?
   createdAt      DateTime @default(now())
 
   productCompliances ProductCompliance[]
@@ -90,7 +104,6 @@ enum RpRole {
   IMPORTER_AS_RP
 }
 
-// ── Manufacturer (Tier 1; feature 2) ─────────────────────────────────────
 model Manufacturer {
   id            String   @id @default(cuid())
   shopId        String
@@ -108,36 +121,32 @@ model Manufacturer {
   productCompliances ProductCompliance[]
 }
 
-// ── Reusable templates (feature 11): "Toys", "Cosmetics" etc. ────────────
 model ComplianceTemplate {
   id                  String   @id @default(cuid())
   shopId              String
   shop                Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
   name                String
-  category            String?  // toys, electronics, cosmetics, furniture...
-  defaultWarnings     Json     @default("[]") // localized warning set
-  defaultPictograms   String[] @default([])   // feature 7: pictogram keys
+  category            String?
+  defaultWarnings     Json     @default("[]")
+  defaultPictograms   String[] @default([])
   careInstructions    String?
   requiresCE          Boolean  @default(false)
-  eprCategory         String?  // feature 31
+  eprCategory         String?
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 
   productCompliances ProductCompliance[]
 }
 
-// ── The heart: per-product compliance record ─────────────────────────────
-// Tier 1 (1-8), Tier 2 (9-15), Tier 3 (16-22) + multi-platform + DPP fields.
 model ProductCompliance {
   id                 String   @id @default(cuid())
   shopId             String
   shop               Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
 
-  shopifyProductId   String   // gid://shopify/Product/...
-  shopifyVariantId   String?  // optional per-variant traceability
-  productTitle       String?  // cached for dashboard
+  shopifyProductId   String
+  shopifyVariantId   String?
+  productTitle       String?
 
-  // relations
   responsiblePersonId String?
   responsiblePerson   ResponsiblePerson? @relation(fields: [responsiblePersonId], references: [id])
   manufacturerId      String?
@@ -145,33 +154,29 @@ model ProductCompliance {
   templateId          String?
   template            ComplianceTemplate? @relation(fields: [templateId], references: [id])
 
-  // Tier 1 core fields
-  warnings           Json     @default("[]")  // [{locale, text, pictogram}] feature 3/12
-  pictograms         String[] @default([])    // feature 7
-  careInstructions   String?                  // feature 5
-  gtin               String?                  // feature 4 identifiers
+  warnings           Json     @default("[]")
+  pictograms         String[] @default([])
+  careInstructions   String?
+  gtin               String?
   modelNumber        String?
   batchNumber        String?
   serialNumber       String?
-  ceMarked           Boolean  @default(false) // feature 6
-  ceDocumentId       String?                  // link to conformity doc
-  eprRegistrationNo  String?                  // feature 31
+  ceMarked           Boolean  @default(false)
+  ceDocumentId       String?
+  eprRegistrationNo  String?
 
-  // Tier 2 scoping
-  appliedByBulk      Boolean  @default(false) // feature 9
-  isOverride         Boolean  @default(false) // feature 10
-  euOnly             Boolean  @default(true)  // feature 15 per-product geo
+  appliedByBulk      Boolean  @default(false)
+  isOverride         Boolean  @default(false)
+  euOnly             Boolean  @default(true)
 
-  // Tier 3 / compliance state
-  status             ComplianceStatus @default(INCOMPLETE) // feature 13/16 dashboard red/green
-  missingFields      String[] @default([])                 // feature 16/32 gap detail
+  status             ComplianceStatus @default(INCOMPLETE)
+  missingFields      String[] @default([])
   lastScannedAt      DateTime?
-  passportUrl        String?  // feature 18: generated GPSR PDF passport
+  passportUrl        String?
 
-  // DPP-ready (future law) — stored now, surfaced later
   dppEnabled         Boolean  @default(false)
   dppQrCodeUrl       String?
-  materialComposition Json?   // recyclability / substances
+  materialComposition Json?
   originCountry      String?
   sustainabilityData Json?
 
@@ -191,15 +196,14 @@ enum ComplianceStatus {
   NEEDS_REVIEW
 }
 
-// ── Multi-platform sync state (features 23-26, 32) ───────────────────────
 model ChannelProductState {
   id                  String   @id @default(cuid())
   productComplianceId String
   productCompliance   ProductCompliance @relation(fields: [productComplianceId], references: [id], onDelete: Cascade)
   channel             Channel
   syncedAt            DateTime?
-  status              String   @default("pending") // pending/synced/error/blocked
-  validatorPassed     Boolean  @default(false)     // feature 32 pre-list validator
+  status              String   @default("pending")
+  validatorPassed     Boolean  @default(false)
   errorDetail         String?
 
   @@unique([productComplianceId, channel])
@@ -214,19 +218,17 @@ enum Channel {
   TEMU
 }
 
-// ── Channel export jobs (features 14/23/24/25: CSV & feed exports) ────────
 model ChannelExport {
   id          String   @id @default(cuid())
   shopId      String
   shop        Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
   channel     Channel
-  format      String   // csv, amazon-ps, tiktok-qualification, xml
+  format      String
   fileUrl     String?
   rowCount    Int      @default(0)
   createdAt   DateTime @default(now())
 }
 
-// ── 10-year document retention vault (feature 28) ────────────────────────
 model ComplianceDocument {
   id          String   @id @default(cuid())
   shopId      String
@@ -234,8 +236,8 @@ model ComplianceDocument {
   kind        DocKind
   fileName    String
   fileUrl     String
-  productId   String?  // optional link to a product
-  retainUntil DateTime // GPSR: keep technical file 10 years
+  productId   String?
+  retainUntil DateTime
   createdAt   DateTime @default(now())
 }
 
@@ -249,26 +251,24 @@ enum DocKind {
   OTHER
 }
 
-// ── Supplier data request tool (feature 19) ──────────────────────────────
 model SupplierDataRequest {
   id          String   @id @default(cuid())
   shopId      String
   shop        Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
   supplierEmail String
   productRef    String?
-  token         String  @unique // public form link
-  status        String  @default("sent") // sent/opened/submitted
+  token         String  @unique
+  status        String  @default("sent")
   submittedData Json?
   createdAt     DateTime @default(now())
 }
 
-// ── Incident / recall log (feature 20; GPSR record-keeping) ──────────────
 model IncidentLog {
   id          String   @id @default(cuid())
   shopId      String
   shop        Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
   productRef  String?
-  type        String   // complaint, injury, recall, authority-request
+  type        String
   description String
   actionTaken String?
   reportedToAuthority Boolean @default(false)
@@ -276,26 +276,23 @@ model IncidentLog {
   createdAt   DateTime @default(now())
 }
 
-// ── Audit trail (professional/enterprise trust) ──────────────────────────
 model AuditEvent {
   id        String   @id @default(cuid())
   shopId    String
   shop      Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
-  actor     String   // user email or "system"
+  actor     String
   action    String
   target    String?
   meta      Json?
   createdAt DateTime @default(now())
 }
 
-// ── Warning library (feature 7/21: auto-updating pictograms + warnings) ──
-// Global reference data, seeded + updatable when EU rules change.
 model WarningLibraryItem {
   id          String   @id @default(cuid())
-  key         String   @unique // e.g. "choking_hazard_0_3"
+  key         String   @unique
   category    String
-  pictogramSvg String  // inline SVG
-  translations Json    // {en, de, fr, es, it, nl, pl, ...}
+  pictogramSvg String
+  translations Json
   regulationRef String?
   version      Int     @default(1)
   updatedAt    DateTime @updatedAt
