@@ -31,7 +31,11 @@ const shopify = shopifyApp({
       lineItems: [{ amount: 224.55, currencyCode: "USD", interval: BillingInterval.Annual }],
     },
   },
-  future: { unstable_newEmbeddedAuthStrategy: true, removeRest: true },
+  future: {
+    unstable_newEmbeddedAuthStrategy: true,
+    removeRest: true,
+    expiringOfflineAccessTokens: true,
+  },
   ...(process.env.SHOP_CUSTOM_DOMAIN
     ? { customShopDomains: [process.env.SHOP_CUSTOM_DOMAIN] }
     : {}),
