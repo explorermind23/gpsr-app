@@ -36,7 +36,7 @@ const DEFS = [
 export async function ensureGpsrDefinitions(admin) {
   for (const d of DEFS) {
     try {
-      await admin.graphql(DEFINITION_CREATE, {
+      const res = await admin.graphql(DEFINITION_CREATE, {
         variables: {
           def: {
             name: d.name, namespace: NS, key: d.key, type: d.type,
@@ -45,7 +45,14 @@ export async function ensureGpsrDefinitions(admin) {
           },
         },
       });
-    } catch (e) { /* already exists — ignore */ }
+      const body = await res.json();
+      const errs = body.data?.metafieldDefinitionCreate?.userErrors || [];
+      // TAKEN error = definition already exists — expected, ignore. Log anything else.
+      const real = errs.filter((e) => e.code !== "TAKEN");
+      if (real.length) console.error("[gpsr] metafield definition error:", d.key, JSON.stringify(real));
+    } catch (e) {
+      console.error("[gpsr] metafield definition request failed:", d.key, e?.message || e);
+    }
   }
 }
 
@@ -84,10 +91,14 @@ export async function writeComplianceMetafields(admin, productId, record, rp, ma
     { ownerId: productId, namespace: NS, key: "ce_marked", type: "boolean", value: record.ceMarked ? "true" : "false" },
     { ownerId: productId, namespace: NS, key: "pictograms", type: "json", value: JSON.stringify(pictograms) },
     { ownerId: productId, namespace: NS, key: "status", type: "single_line_text_field", value: record.status || "INCOMPLETE" },
-  ];
+  ]
+    // metafieldsSet is ATOMIC: one blank value rejects the whole batch.
+    // Skip empty text values entirely (Shopify forbids value: "").
+    .filter((m) => m.value !== "" && m.value !== null && m.value !== undefined);
 
   const res = await admin.graphql(METAFIELDS_SET, { variables: { metafields } });
   const body = await res.json();
   const errors = body.data?.metafieldsSet?.userErrors || [];
+  if (errors.length) console.error("[gpsr] metafieldsSet errors:", JSON.stringify(errors));
   return { ok: errors.length === 0, errors };
 }
