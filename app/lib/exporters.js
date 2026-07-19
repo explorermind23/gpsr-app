@@ -27,59 +27,102 @@ function identifierOf(rec) {
   return rec.gtin || rec.modelNumber || rec.batchNumber || rec.serialNumber || "";
 }
 
-// ── AMAZON — compliance flat-file style ──────────────────────────────────
+function fullAddress(x) {
+  if (!x) return "";
+  return `${x.streetAddress}, ${x.city} ${x.postalCode}, ${x.country}`;
+}
+
+// ── AMAZON — GPSR compliance bulk sheet ────────────────────────────────
+// Column IDs verified against Seller Central (Account Health → Product
+// Compliance → GPSR bulk template). Notes:
+// - "gpsr_manufacturer_email_adress" is Amazon's own spelling — do not fix it.
+// - seller_sku must match the seller's SKU in Seller Central; we pre-fill the
+//   GTIN so the seller can VLOOKUP/replace with their own SKUs before upload.
+// - compliance_media_* columns are numbered series (_01, _02 …); we emit _01
+//   with the combined safety warnings as inline text plus language code of the
+//   first warning.
 export function buildAmazonCsv(items) {
   const headers = [
-    "item_name", "external_product_id", "external_product_id_type",
-    "eu_responsible_person_name", "eu_responsible_person_address",
-    "eu_responsible_person_email", "eu_responsible_person_phone",
-    "manufacturer_name", "manufacturer_address",
-    "safety_warnings", "ce_marked", "country_of_origin", "care_instructions",
+    "seller_sku",
+    "external_product_id",
+    "external_product_id_type",
+    "item_name",
+    "gpsr_manufacturer_reference.gpsr_manufacturer_name",
+    "gpsr_manufacturer_reference.gpsr_manufacturer_address",
+    "gpsr_manufacturer_reference.gpsr_manufacturer_email_adress",
+    "dsa_responsible_party_address.value",
+    "gpsr_safety_attestation.value",
+    "compliance_media_content_type_01",
+    "compliance_media_content_language_01",
+    "compliance_media_source_location_01",
+    "safety_warnings_text",
   ];
-  const rows = items.map(({ rec, rp, mf }) => ({
-    item_name: rec.productTitle || "",
-    external_product_id: rec.gtin || "",
-    external_product_id_type: rec.gtin ? "EAN" : "",
-    eu_responsible_person_name: rp ? rp.legalName : "",
-    eu_responsible_person_address: rp ? `${rp.streetAddress}, ${rp.city} ${rp.postalCode}, ${rp.country}` : "",
-    eu_responsible_person_email: rp ? rp.email : "",
-    eu_responsible_person_phone: rp ? rp.phone : "",
-    manufacturer_name: mf ? mf.legalName : "",
-    manufacturer_address: mf ? `${mf.streetAddress}, ${mf.city} ${mf.postalCode}, ${mf.country}` : "",
-    safety_warnings: warningsToText(rec.warnings),
-    ce_marked: rec.ceMarked ? "Yes" : "No",
-    country_of_origin: rec.originCountry || "",
-    care_instructions: rec.careInstructions || "",
-  }));
+  const rows = items.map(({ rec, rp, mf }) => {
+    const firstWarnLocale = Array.isArray(rec.warnings) && rec.warnings[0]
+      ? String(rec.warnings[0].locale).toLowerCase()
+      : "";
+    return {
+      seller_sku: rec.gtin || "",
+      external_product_id: rec.gtin || "",
+      external_product_id_type: rec.gtin ? "EAN" : "",
+      item_name: rec.productTitle || "",
+      "gpsr_manufacturer_reference.gpsr_manufacturer_name": mf ? mf.legalName : "",
+      "gpsr_manufacturer_reference.gpsr_manufacturer_address": fullAddress(mf),
+      "gpsr_manufacturer_reference.gpsr_manufacturer_email_adress": mf ? (mf.email || "") : "",
+      "dsa_responsible_party_address.value": rp
+        ? `${rp.legalName}, ${fullAddress(rp)}, ${rp.email}, ${rp.phone}`
+        : "",
+      "gpsr_safety_attestation.value": "TRUE",
+      compliance_media_content_type_01: "safety_information",
+      compliance_media_content_language_01: firstWarnLocale ? `${firstWarnLocale}_${(rp?.country || "DE").toUpperCase()}` : "",
+      compliance_media_source_location_01: "",
+      safety_warnings_text: warningsToText(rec.warnings),
+    };
+  });
   return toCsv(headers, rows);
 }
 
-// ── TIKTOK SHOP — Qualification Center (Manufacturer + Responsible Person) ─
+// ── TIKTOK SHOP — Qualification Center prep sheet ──────────────────────
+// TikTok has NO CSV import for GPSR data: Manufacturer and Responsible
+// Person are records the seller creates once in Seller Center →
+// Qualification Center, then attaches to listings. This sheet collects
+// everything they need to copy in, using TikTok's field names
+// (manufacturer.*, responsible_person.*_01).
 export function buildTiktokCsv(items) {
   const headers = [
-    "product_title", "product_identifier",
-    "manufacturer_name", "manufacturer_address", "manufacturer_email",
-    "responsible_person_name", "responsible_person_address",
-    "responsible_person_email", "responsible_person_phone",
-    "safety_warnings", "ce_marked",
+    "product_title",
+    "product_identifier",
+    "manufacturer.name",
+    "manufacturer.registered_trade_name",
+    "manufacturer.address",
+    "manufacturer.email",
+    "manufacturer.phone_number",
+    "responsible_person.name_01",
+    "responsible_person.address_01",
+    "responsible_person.email_01",
+    "responsible_person.phone_number_01",
+    "safety_warnings",
+    "ce_marked",
   ];
   const rows = items.map(({ rec, rp, mf }) => ({
     product_title: rec.productTitle || "",
     product_identifier: identifierOf(rec),
-    manufacturer_name: mf ? mf.legalName : "",
-    manufacturer_address: mf ? `${mf.streetAddress}, ${mf.city} ${mf.postalCode}, ${mf.country}` : "",
-    manufacturer_email: mf ? (mf.email || "") : "",
-    responsible_person_name: rp ? rp.legalName : "",
-    responsible_person_address: rp ? `${rp.streetAddress}, ${rp.city} ${rp.postalCode}, ${rp.country}` : "",
-    responsible_person_email: rp ? rp.email : "",
-    responsible_person_phone: rp ? rp.phone : "",
+    "manufacturer.name": mf ? mf.legalName : "",
+    "manufacturer.registered_trade_name": mf ? (mf.tradeName || "") : "",
+    "manufacturer.address": fullAddress(mf),
+    "manufacturer.email": mf ? (mf.email || "") : "",
+    "manufacturer.phone_number": mf ? (mf.phone || "") : "",
+    "responsible_person.name_01": rp ? rp.legalName : "",
+    "responsible_person.address_01": fullAddress(rp),
+    "responsible_person.email_01": rp ? rp.email : "",
+    "responsible_person.phone_number_01": rp ? rp.phone : "",
     safety_warnings: warningsToText(rec.warnings),
     ce_marked: rec.ceMarked ? "Yes" : "No",
   }));
   return toCsv(headers, rows);
 }
 
-// ── GENERIC — eBay / Etsy / Temu / spreadsheet ───────────────────────────
+// ── GENERIC — eBay / Etsy / Temu / spreadsheet ─────────────────────────
 export function buildGenericCsv(items) {
   const headers = [
     "product_title", "gtin", "model_number", "batch_number", "serial_number",
@@ -93,11 +136,11 @@ export function buildGenericCsv(items) {
     gtin: rec.gtin || "", model_number: rec.modelNumber || "",
     batch_number: rec.batchNumber || "", serial_number: rec.serialNumber || "",
     responsible_person_name: rp ? rp.legalName : "",
-    responsible_person_address: rp ? `${rp.streetAddress}, ${rp.city} ${rp.postalCode}, ${rp.country}` : "",
+    responsible_person_address: fullAddress(rp),
     responsible_person_email: rp ? rp.email : "",
     responsible_person_phone: rp ? rp.phone : "",
     manufacturer_name: mf ? mf.legalName : "",
-    manufacturer_address: mf ? `${mf.streetAddress}, ${mf.city} ${mf.postalCode}, ${mf.country}` : "",
+    manufacturer_address: fullAddress(mf),
     warnings: warningsToText(rec.warnings),
     ce_marked: rec.ceMarked ? "Yes" : "No",
     epr_registration: rec.eprRegistrationNo || "",
@@ -107,8 +150,8 @@ export function buildGenericCsv(items) {
 }
 
 export const CHANNEL_META = {
-  amazon: { label: "Amazon (EU)", format: "amazon-flatfile", build: buildAmazonCsv, filename: "gpsr-amazon-export.csv" },
-  tiktok: { label: "TikTok Shop (EU)", format: "tiktok-qualification", build: buildTiktokCsv, filename: "gpsr-tiktok-export.csv" },
+  amazon: { label: "Amazon (EU)", format: "amazon-flatfile", build: buildAmazonCsv, filename: "gpsr-amazon-compliance-sheet.csv" },
+  tiktok: { label: "TikTok Shop (EU)", format: "tiktok-qualification", build: buildTiktokCsv, filename: "gpsr-tiktok-qualification-prep.csv" },
   ebay: { label: "eBay", format: "csv", build: buildGenericCsv, filename: "gpsr-ebay-export.csv" },
   etsy: { label: "Etsy", format: "csv", build: buildGenericCsv, filename: "gpsr-etsy-export.csv" },
   temu: { label: "Temu", format: "csv", build: buildGenericCsv, filename: "gpsr-temu-export.csv" },
