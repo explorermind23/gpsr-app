@@ -11,7 +11,7 @@ import { authenticate } from "../shopify.server";
 import prisma from "../db.server";
 import { computeCompliance, STATUS_META } from "../lib/compliance";
 import { useT } from "../lib/i18n/context";
-import { assertProductAllowance } from "../lib/billing";
+import { assertProductAllowance } from "../lib/billing.server";
 
 async function getShop(session) {
   return (

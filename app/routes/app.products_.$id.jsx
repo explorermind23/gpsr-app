@@ -13,7 +13,7 @@ import { languageByCode } from "../lib/languages";
 import { PICTOGRAMS } from "../lib/pictograms";
 import { ensureGpsrDefinitions, writeComplianceMetafields } from "../lib/shopify-metafields";
 import { useT } from "../lib/i18n/context";
-import { assertProductAllowance } from "../lib/billing";
+import { assertProductAllowance } from "../lib/billing.server";
 
 async function getShop(session) {
   return (

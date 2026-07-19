@@ -7,10 +7,10 @@ import {
 } from "@shopify/polaris";
 import { authenticate } from "../shopify.server";
 import prisma from "../db.server";
+import { PLAN_LIMITS, PLAN_PRICING } from "../lib/plans";
 import {
-  BILLING_PLANS, IS_TEST_BILLING, PLAN_LIMITS, PLAN_PRICING,
-  planFromBillingCheck, getLedgerUsage,
-} from "../lib/billing";
+  BILLING_PLANS, IS_TEST_BILLING, planFromBillingCheck, getLedgerUsage,
+} from "../lib/billing.server";
 
 async function getShop(session) {
   return (
