@@ -2,7 +2,7 @@ import { json, redirect } from "@remix-run/node";
 import { useLoaderData, useActionData, Form, useNavigation, useSearchParams } from "@remix-run/react";
 import { useState } from "react";
 import {
-  Page, Layout, Card, Button, Banner, BlockStack, InlineStack, Text, Checkbox, Select,
+  Page, Layout, Card, Button, Banner, BlockStack, InlineStack, Text, Checkbox, Select, TextField,
 } from "@shopify/polaris";
 import { authenticate } from "../shopify.server";
 import prisma from "../db.server";
@@ -33,6 +33,8 @@ export const action = async ({ request }) => {
       defaultRetentionYears: parseInt(String(form.get("defaultRetentionYears") || "10"), 10) || 10,
       recallAlertsEnabled: form.get("recallAlertsEnabled") === "on",
       weeklyDigestEnabled: form.get("weeklyDigestEnabled") === "on",
+      brandLogoUrl: String(form.get("brandLogoUrl") || "").trim() || null,
+      brandAccentHex: String(form.get("brandAccentHex") || "").trim() || null,
     },
   });
   return redirect("/app/settings?saved=1");
@@ -50,6 +52,8 @@ export default function Settings() {
   const [retention, setRetention] = useState(String(shop.defaultRetentionYears || 10));
   const [recallAlerts, setRecallAlerts] = useState(shop.recallAlertsEnabled);
   const [weeklyDigest, setWeeklyDigest] = useState(shop.weeklyDigestEnabled);
+  const [logoUrl, setLogoUrl] = useState(shop.brandLogoUrl || "");
+  const [accentHex, setAccentHex] = useState(shop.brandAccentHex || "#1D9E75");
 
   return (
     <Page title={t("nav.settings")} backAction={{ content: t("common.back"), url: "/app" }}>
@@ -83,6 +87,21 @@ export default function Settings() {
                       { label: "15 years", value: "15" },
                     ]}
                     value={retention} onChange={setRetention} />
+                </BlockStack>
+              </Card>
+
+              <Card>
+                <BlockStack gap="300">
+                  <Text as="h2" variant="headingMd">Passport branding</Text>
+                  <Text as="p" variant="bodySm" tone="subdued">
+                    Applied to the GPSR passport PDF you can download for each product.
+                  </Text>
+                  <TextField label="Logo URL (https, PNG or JPG)" name="brandLogoUrl" autoComplete="off"
+                    value={logoUrl} onChange={setLogoUrl} placeholder="https://cdn.shopify.com/.../logo.png"
+                    helpText="Paste a direct link to your logo image. Leave blank to show your shop name only." />
+                  <TextField label="Accent colour (hex)" name="brandAccentHex" autoComplete="off"
+                    value={accentHex} onChange={setAccentHex} placeholder="#1D9E75"
+                    helpText="Used for the header bar and section headings." />
                 </BlockStack>
               </Card>
 

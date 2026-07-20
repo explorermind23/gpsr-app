@@ -188,6 +188,36 @@ export default function ProductEditor() {
     ai.submit(fd, { method: "post", action: "/api/ai-autofill" });
   };
 
+  // Direct links lose the session token inside the embedded admin, so the PDF
+  // is fetched (App Bridge attaches the token) and downloaded as a blob.
+  const [pdfBusy, setPdfBusy] = useState(false);
+  const [pdfError, setPdfError] = useState(null);
+  const downloadPassport = async () => {
+    setPdfBusy(true);
+    setPdfError(null);
+    try {
+      const res = await fetch(`/api/passport/${product.id.split("/").pop()}`);
+      if (!res.ok) {
+        const info = await res.json().catch(() => ({}));
+        setPdfError(info.message || "Could not generate the passport.");
+        return;
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `gpsr-passport-${product.title.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      setPdfError("Could not generate the passport. Try saving the product first.");
+    } finally {
+      setPdfBusy(false);
+    }
+  };
+
   const meta = STATUS_META[compliance.status] || STATUS_META.INCOMPLETE;
 
   const rpOptions = [{ label: "— Select a Responsible Person —", value: "" },
@@ -379,9 +409,12 @@ export default function ProductEditor() {
                 <BlockStack gap="200">
                   <Button variant="primary" submit loading={saving} fullWidth>Save compliance data</Button>
                   {record && (
-                    <Button url={`/api/passport/${encodeURIComponent(product.id.split("/").pop())}`} external fullWidth>
+                    <Button onClick={downloadPassport} loading={pdfBusy} fullWidth>
                       Download GPSR passport (PDF)
                     </Button>
+                  )}
+                  {pdfError && (
+                    <Text as="span" variant="bodySm" tone="critical">{pdfError}</Text>
                   )}
                   <Button url="/app/products" fullWidth>Cancel</Button>
                 </BlockStack>

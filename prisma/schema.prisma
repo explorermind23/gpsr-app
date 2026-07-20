@@ -42,6 +42,8 @@ model Shop {
   defaultLocale        String   @default("en")
   euMarketLocales      String[] @default([])
   defaultRetentionYears Int     @default(10)
+  brandLogoUrl         String?
+  brandAccentHex       String?
   recallAlertsEnabled  Boolean  @default(true)
   weeklyDigestEnabled  Boolean  @default(false)
   createdAt            DateTime @default(now())
