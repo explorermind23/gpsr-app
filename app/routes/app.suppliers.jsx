@@ -65,6 +65,13 @@ export const action = async ({ request }) => {
   if (intent === "resend") {
     const rq = await prisma.supplierDataRequest.findUnique({ where: { id: String(form.get("id")) } });
     if (!rq) return json({ error: "Request not found." }, { status: 404 });
+    if (!emailConfigured()) {
+      await prisma.supplierDataRequest.update({
+        where: { id: rq.id },
+        data: { emailError: "RESEND_API_KEY is not set on the server, so no email was sent." },
+      });
+      return redirect("/app/suppliers?mailfail=1");
+    }
     const who = await shopIdentity(admin, shop.shopDomain);
     const result = await sendSupplierRequestEmail({
       to: rq.supplierEmail,
@@ -96,7 +103,15 @@ export const action = async ({ request }) => {
       data: { shopId: shop.id, supplierEmail, productRef, token: makeToken(), status: "sent" },
     });
 
-    if (sendNow && emailConfigured()) {
+    if (sendNow && !emailConfigured()) {
+      await prisma.supplierDataRequest.update({
+        where: { id: created.id },
+        data: { emailError: "RESEND_API_KEY is not set on the server, so no email was sent." },
+      });
+      return redirect("/app/suppliers?mailfail=1");
+    }
+
+    if (sendNow) {
       const who = await shopIdentity(admin, shop.shopDomain);
       const result = await sendSupplierRequestEmail({
         to: supplierEmail,
@@ -220,8 +235,9 @@ export default function Suppliers() {
                       value={productRef} onChange={setProductRef}
                       placeholder="e.g. Wooden Toy Car" />
                   </FormLayout.Group>
+                  <input type="hidden" name="sendEmail" value={sendEmail && mailEnabled ? "on" : "off"} />
                   <Checkbox label="Email the request to this supplier now"
-                    name="sendEmail" checked={sendEmail} onChange={setSendEmail} disabled={!mailEnabled}
+                    checked={sendEmail} onChange={setSendEmail} disabled={!mailEnabled}
                     helpText={mailEnabled
                       ? "They receive a secure link. No account needed, and no access to your store."
                       : "Email sending is not configured on this store."} />
