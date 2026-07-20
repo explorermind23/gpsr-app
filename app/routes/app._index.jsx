@@ -25,7 +25,7 @@ export const loader = async ({ request }) => {
   const { session } = await authenticate.admin(request);
   const shop = await getShop(session);
 
-  const [rpCount, mfCount, templateCount, docCount, records, ledgerUsed, newRecalls] =
+  const [rpCount, mfCount, templateCount, docCount, records, ledgerUsed, newRecalls, expiringDocs] =
     await Promise.all([
       prisma.responsiblePerson.count({ where: { shopId: shop.id } }),
       prisma.manufacturer.count({ where: { shopId: shop.id } }),
@@ -37,6 +37,12 @@ export const loader = async ({ request }) => {
       }),
       prisma.productLedgerEntry.count({ where: { shopId: shop.id } }),
       countNewRecallMatches(shop.id).catch(() => 0),
+      prisma.complianceDocument.count({
+        where: {
+          shopId: shop.id,
+          retainUntil: { lt: new Date(Date.now() + 1000 * 60 * 60 * 24 * 180) },
+        },
+      }),
     ]);
 
   const total = records.length;
@@ -69,7 +75,7 @@ export const loader = async ({ request }) => {
     shop, score, parts,
     stats: { total, ready, published, incomplete, needsReview, langCount, docCount, rpCount, mfCount, templateCount },
     ledger: { used: ledgerUsed, limit: limit === Infinity ? null : limit },
-    newRecalls,
+    newRecalls, expiringDocs,
   });
 };
 
@@ -80,11 +86,35 @@ function scoreTone(score) {
 }
 
 export default function Index() {
-  const { shop, score, parts, stats, ledger, newRecalls } = useLoaderData();
+  const { shop, score, parts, stats, ledger, newRecalls, expiringDocs } = useLoaderData();
   const t = useT();
   const st = scoreTone(score);
   const doneCount = parts.filter((p) => p.done).length;
   const nextStep = parts.find((p) => !p.done);
+  const setupComplete = doneCount === parts.length;
+
+  const attention = [
+    stats.incomplete > 0 && {
+      key: "incomplete", tone: "critical",
+      text: `${stats.incomplete} product(s) missing required safety data`,
+      cta: "Fix products", url: "/app/products?status=INCOMPLETE",
+    },
+    stats.needsReview > 0 && {
+      key: "review", tone: "warning",
+      text: `${stats.needsReview} product(s) need review`,
+      cta: "Review", url: "/app/products",
+    },
+    newRecalls > 0 && {
+      key: "recalls", tone: "critical",
+      text: `${newRecalls} possible recall match(es) in your catalog`,
+      cta: "Check alerts", url: "/app/recalls",
+    },
+    expiringDocs > 0 && {
+      key: "docs", tone: "warning",
+      text: `${expiringDocs} document(s) approaching the end of their retention period`,
+      cta: "Open vault", url: "/app/documents",
+    },
+  ].filter(Boolean);
 
   return (
     <Page
@@ -147,66 +177,41 @@ export default function Index() {
           </Card>
         </Layout.Section>
 
-        {/* Setup checklist */}
+        {/* Needs attention */}
         <Layout.Section>
           <Card>
             <BlockStack gap="300">
-              <Text as="h2" variant="headingMd">Setup checklist</Text>
-              <BlockStack gap="200">
-                {parts.map((p) => (
-                  <Box key={p.key}>
-                    <InlineStack align="space-between" blockAlign="center" wrap>
-                      <InlineStack gap="200" blockAlign="center">
-                        <Icon source={p.done ? CheckCircleIcon : StatusActiveIcon}
-                          tone={p.done ? "success" : "subdued"} />
-                        <BlockStack gap="0">
-                          <Text as="span" variant="bodyMd" tone={p.done ? "subdued" : "base"}>{p.label}</Text>
-                          {p.key === "products" && stats.total > 0 && !p.done && (
-                            <Text as="span" variant="bodySm" tone="subdued">
-                              {`${stats.ready} of ${stats.total} products ready`}
-                            </Text>
-                          )}
-                        </BlockStack>
-                      </InlineStack>
-                      {p.done ? <Badge tone="success">Done</Badge> : <Button url={p.url} size="slim">{p.cta}</Button>}
-                    </InlineStack>
-                    <Box paddingBlockStart="200"><Divider /></Box>
-                  </Box>
-                ))}
-                <InlineStack align="space-between" blockAlign="center" wrap>
-                  <InlineStack gap="200" blockAlign="center">
-                    <Icon source={StoreIcon} tone="subdued" />
-                    <BlockStack gap="0">
-                      <Text as="span" variant="bodyMd">Storefront safety block added to your theme</Text>
-                      <Text as="span" variant="bodySm" tone="subdued">Add the "GPSR Compliance" block to your product template in the theme editor.</Text>
-                    </BlockStack>
-                  </InlineStack>
-                  <Badge>Manual step</Badge>
-                </InlineStack>
-              </BlockStack>
-            </BlockStack>
-          </Card>
-        </Layout.Section>
-
-        {/* Catalog status */}
-        <Layout.Section>
-          <Card>
-            <BlockStack gap="300">
-              <Text as="h2" variant="headingMd">Catalog status</Text>
-              <InlineStack gap="400" wrap>
-                <InlineStack gap="100" blockAlign="center">
-                  <Icon source={CheckCircleIcon} tone="success" />
-                  <Text as="span" variant="bodyMd">{`${stats.ready} compliant`}</Text>
-                </InlineStack>
-                <InlineStack gap="100" blockAlign="center">
-                  <Icon source={AlertTriangleIcon} tone="critical" />
-                  <Text as="span" variant="bodyMd">{`${stats.incomplete} missing data`}</Text>
-                </InlineStack>
-                <InlineStack gap="100" blockAlign="center">
-                  <Icon source={AlertTriangleIcon} tone="warning" />
-                  <Text as="span" variant="bodyMd">{`${stats.needsReview} need review`}</Text>
-                </InlineStack>
+              <InlineStack align="space-between" blockAlign="center">
+                <Text as="h2" variant="headingMd">Needs attention</Text>
+                <Badge tone={attention.length ? "critical" : "success"}>
+                  {attention.length ? `${attention.length} item(s)` : "All clear"}
+                </Badge>
               </InlineStack>
+              {attention.length === 0 ? (
+                <InlineStack gap="200" blockAlign="center">
+                  <Icon source={CheckCircleIcon} tone="success" />
+                  <Text as="span" variant="bodyMd" tone="subdued">
+                    {stats.total > 0
+                      ? "Every tracked product carries full safety data and no recalls match your catalog."
+                      : "Nothing to fix yet. Add safety data to your first product to get started."}
+                  </Text>
+                </InlineStack>
+              ) : (
+                <BlockStack gap="200">
+                  {attention.map((a, i) => (
+                    <Box key={a.key}>
+                      <InlineStack align="space-between" blockAlign="center" wrap>
+                        <InlineStack gap="200" blockAlign="center">
+                          <Icon source={AlertTriangleIcon} tone={a.tone === "critical" ? "critical" : "warning"} />
+                          <Text as="span" variant="bodyMd">{a.text}</Text>
+                        </InlineStack>
+                        <Button url={a.url} size="slim">{a.cta}</Button>
+                      </InlineStack>
+                      {i < attention.length - 1 && <Box paddingBlockStart="200"><Divider /></Box>}
+                    </Box>
+                  ))}
+                </BlockStack>
+              )}
             </BlockStack>
           </Card>
         </Layout.Section>
@@ -284,6 +289,59 @@ export default function Index() {
             </Card>
           </InlineGrid>
         </Layout.Section>
+        {/* Setup checklist — last, collapses once done */}
+        <Layout.Section>
+          {setupComplete ? (
+            <Card>
+              <InlineStack align="space-between" blockAlign="center" wrap>
+                <InlineStack gap="200" blockAlign="center">
+                  <Icon source={CheckCircleIcon} tone="success" />
+                  <Text as="span" variant="bodyMd">Setup complete — every configuration step is done.</Text>
+                </InlineStack>
+                <Badge tone="success">{`${doneCount}/${parts.length}`}</Badge>
+              </InlineStack>
+            </Card>
+          ) : (
+          <Card>
+            <BlockStack gap="300">
+              <Text as="h2" variant="headingMd">Setup checklist</Text>
+              <BlockStack gap="200">
+                {parts.map((p) => (
+                  <Box key={p.key}>
+                    <InlineStack align="space-between" blockAlign="center" wrap>
+                      <InlineStack gap="200" blockAlign="center">
+                        <Icon source={p.done ? CheckCircleIcon : StatusActiveIcon}
+                          tone={p.done ? "success" : "subdued"} />
+                        <BlockStack gap="0">
+                          <Text as="span" variant="bodyMd" tone={p.done ? "subdued" : "base"}>{p.label}</Text>
+                          {p.key === "products" && stats.total > 0 && !p.done && (
+                            <Text as="span" variant="bodySm" tone="subdued">
+                              {`${stats.ready} of ${stats.total} products ready`}
+                            </Text>
+                          )}
+                        </BlockStack>
+                      </InlineStack>
+                      {p.done ? <Badge tone="success">Done</Badge> : <Button url={p.url} size="slim">{p.cta}</Button>}
+                    </InlineStack>
+                    <Box paddingBlockStart="200"><Divider /></Box>
+                  </Box>
+                ))}
+                <InlineStack align="space-between" blockAlign="center" wrap>
+                  <InlineStack gap="200" blockAlign="center">
+                    <Icon source={StoreIcon} tone="subdued" />
+                    <BlockStack gap="0">
+                      <Text as="span" variant="bodyMd">Storefront safety block added to your theme</Text>
+                      <Text as="span" variant="bodySm" tone="subdued">Add the "GPSR Compliance" block to your product template in the theme editor.</Text>
+                    </BlockStack>
+                  </InlineStack>
+                  <Badge>Manual step</Badge>
+                </InlineStack>
+              </BlockStack>
+            </BlockStack>
+          </Card>
+          )}
+        </Layout.Section>
+
       </Layout>
     </Page>
   );
