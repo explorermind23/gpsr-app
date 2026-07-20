@@ -1,6 +1,7 @@
 import { authenticate } from "../shopify.server";
 import prisma from "../db.server";
 import { CHANNEL_META } from "../lib/exporters";
+import { canExport } from "../lib/plans";
 
 // GET /api/export/:channel  → downloads a GPSR feed file for that marketplace.
 export const loader = async ({ request, params }) => {
@@ -8,8 +9,25 @@ export const loader = async ({ request, params }) => {
   const shop = await prisma.shop.findUnique({ where: { shopDomain: session.shop } });
   const channel = String(params.channel || "").toLowerCase();
   const meta = CHANNEL_META[channel];
+
   if (!shop || !meta) {
     return new Response("Unknown channel", { status: 404 });
+  }
+
+  // Plan entitlement — Free has no exports, Starter has Amazon only.
+  if (!canExport(shop.plan, channel)) {
+    return new Response(
+      JSON.stringify({
+        error: "upgrade_required",
+        message:
+          shop.plan === "FREE"
+            ? "Marketplace exports are available on Starter and Pro."
+            : `The ${meta.label} export is available on Pro.`,
+        channel,
+        plan: shop.plan,
+      }),
+      { status: 402, headers: { "Content-Type": "application/json" } }
+    );
   }
 
   // Only export products that are actually compliant (READY / PUBLISHED).
@@ -21,7 +39,6 @@ export const loader = async ({ request, params }) => {
   const items = records.map((rec) => ({ rec, rp: rec.responsiblePerson, mf: rec.manufacturer }));
   const csv = meta.build(items);
 
-  // Log the export
   await prisma.channelExport.create({
     data: {
       shopId: shop.id,

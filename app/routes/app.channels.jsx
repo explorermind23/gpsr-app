@@ -11,6 +11,7 @@ import {
 import { authenticate } from "../shopify.server";
 import prisma from "../db.server";
 import { CHANNEL_META } from "../lib/exporters";
+import { canExport } from "../lib/plans";
 import { useT } from "../lib/i18n/context";
 
 async function getShop(session) {
@@ -37,7 +38,11 @@ export const loader = async ({ request }) => {
     Object.entries(CHANNEL_META).map(([k, m]) => [k, m.format])
   );
 
-  return json({ readyCount, publishedCount, recentExports, filenames, formats });
+  const locked = Object.fromEntries(
+    Object.keys(CHANNEL_META).map((k) => [k, !canExport(shop.plan, k)])
+  );
+
+  return json({ readyCount, publishedCount, recentExports, filenames, formats, plan: shop.plan, locked });
 };
 
 const MARKETPLACES = [
@@ -49,7 +54,7 @@ const MARKETPLACES = [
 ];
 
 export default function Channels() {
-  const { readyCount, publishedCount, recentExports, filenames, formats } = useLoaderData();
+  const { readyCount, publishedCount, recentExports, filenames, formats, plan, locked } = useLoaderData();
   const t = useT();
   const revalidator = useRevalidator();
   const [downloading, setDownloading] = useState(null);
@@ -60,6 +65,11 @@ export default function Channels() {
     setExportError(null);
     try {
       const res = await fetch(`/api/export/${key}`);
+      if (res.status === 402) {
+        const info = await res.json().catch(() => ({}));
+        setExportError(info.message || "This export needs a higher plan.");
+        return;
+      }
       if (!res.ok) throw new Error(`Export failed (${res.status})`);
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
@@ -95,7 +105,9 @@ export default function Channels() {
 
         {exportError && (
           <Layout.Section>
-            <Banner tone="critical" title={exportError} onDismiss={() => setExportError(null)} />
+            <Banner tone="warning" title={exportError}
+              action={{ content: "View plans", url: "/app/billing" }}
+              onDismiss={() => setExportError(null)} />
           </Layout.Section>
         )}
 
@@ -141,14 +153,21 @@ export default function Channels() {
                           <Badge tone={m.tone === "attention" ? "attention" : undefined} size="small">
                             {formats[m.key]}
                           </Badge>
+                          {locked[m.key] && <Badge size="small">{plan === "FREE" ? "Starter" : "Pro"}</Badge>}
                         </InlineStack>
                         <Text as="span" variant="bodySm" tone="subdued">{m.desc}</Text>
                       </BlockStack>
-                      <Button icon={ExportIcon} onClick={() => download(m.key)}
-                        loading={downloading === m.key}
-                        disabled={readyCount === 0 || (downloading && downloading !== m.key)}>
-                        {`Export ${readyCount} product(s)`}
-                      </Button>
+                      {locked[m.key] ? (
+                        <Button url="/app/billing" variant="secondary">
+                          {plan === "FREE" ? "Upgrade to export" : "Upgrade to Pro"}
+                        </Button>
+                      ) : (
+                        <Button icon={ExportIcon} onClick={() => download(m.key)}
+                          loading={downloading === m.key}
+                          disabled={readyCount === 0 || (downloading && downloading !== m.key)}>
+                          {`Export ${readyCount} product(s)`}
+                        </Button>
+                      )}
                     </InlineStack>
                   </Box>
                 ))}

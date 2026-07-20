@@ -21,3 +21,17 @@ export function planFromBillingCheck(appSubscriptions) {
   const interval = name.endsWith("ANNUAL") ? "ANNUAL" : "MONTHLY";
   return { plan, interval };
 }
+
+// Which marketplace exports each plan may download.
+// Free: none — exports are the paid differentiator.
+// Starter: Amazon only (matches the plan card).
+// Pro: everything.
+export const PLAN_EXPORTS = {
+  FREE: [],
+  STARTER: ["amazon"],
+  PRO: ["amazon", "tiktok", "ebay", "etsy", "temu"],
+};
+
+export function canExport(plan, channel) {
+  return (PLAN_EXPORTS[plan] || PLAN_EXPORTS.FREE).includes(channel);
+}
