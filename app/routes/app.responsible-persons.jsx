@@ -280,9 +280,10 @@ export default function ResponsiblePersons() {
                 <Badge tone="info">Appoint a provider</Badge>
               </InlineStack>
               <Text as="p" variant="bodySm" tone="subdued">
-                These companies act as your EU Responsible Person for a fee (typically €199–500/year). You appoint them, then
-                enter the details they give you in the form above. This app does not provide RP services and does not endorse a
-                specific provider — compare and choose the one that fits your products.
+                These companies act as your EU Responsible Person for a fee. You appoint them, then enter the details they give
+                you in the form above. Pricing models differ — some charge once per product or country, others bill annually or
+                monthly. This app does not provide RP services, does not endorse any provider, and earns no commission from
+                these links. Prices change without notice: always confirm on the provider's own site.
               </Text>
               <Divider />
               <InlineGrid columns={{ xs: 1, md: 2 }} gap="300">
@@ -293,6 +294,13 @@ export default function ResponsiblePersons() {
                         <Text as="span" variant="bodyMd" fontWeight="semibold">{p.name}</Text>
                         <Badge>{p.regions}</Badge>
                       </InlineStack>
+                      {p.pricing && (
+                        <InlineStack>
+                          <Badge tone={p.pricing === "One-time fee" ? "success" : undefined} size="small">
+                            {p.pricing}
+                          </Badge>
+                        </InlineStack>
+                      )}
                       <Text as="span" variant="bodySm" tone="subdued">{p.blurb}</Text>
                       <InlineStack>
                         <Button url={p.ref || p.url} target="_blank" icon={ExternalIcon} variant="plain">

@@ -52,36 +52,59 @@ export function isValidRpCountry(role, code) {
   return EU_CODES.has(code);
 }
 
-// Provider directory (feature 27). Merchants who lack an EU entity can appoint one
-// of these as their Responsible Person. Links open the provider's own site;
-// affiliate/referral tracking can be layered on the `ref` field later.
+// Provider directory. Merchants without an EU entity can appoint one of these
+// companies as their Responsible Person. Prices shown are the providers' own
+// published figures at the time of writing and change without notice — always
+// confirm on their site. We take no commission and endorse no provider. The
+// `ref` field exists only so referral tracking could be added later; if it ever
+// is, the UI must disclose it.
 export const RP_PROVIDERS = [
   {
-    name: "Taxually (RP service)",
-    blurb: "EU Responsible Person + documentation review, annual agreement.",
-    regions: "EU-wide",
-    url: "https://www.taxually.com",
-    ref: null,
-  },
-  {
     name: "EaseCert",
-    blurb: "One-time-fee GPSR certification and Responsible Person appointment.",
+    blurb: "One-time fee per product type (published from ~€400), Responsible Person included. No annual renewal.",
+    pricing: "One-time fee",
     regions: "EU-wide",
     url: "https://easecert.com",
     ref: null,
   },
   {
-    name: "Complico Consulting (DE)",
-    blurb: "Germany-based Authorised Representative and full technical file support.",
-    regions: "EU / Germany",
-    url: "https://complicoconsulting.com",
+    name: "Eldris",
+    blurb: "One-time fee per country (published from ~£195), with a compliance dashboard and authority liaison.",
+    pricing: "One-time fee",
+    regions: "EU-wide",
+    url: "https://responsible.eldris.ai",
     ref: null,
   },
   {
-    name: "EU Compliance Partner",
-    blurb: "Responsible Person for non-food products, marketplace-focused.",
+    name: "EAS Project",
+    blurb: "Estonia-based Authorised Representative service covering GPSR and wider EU product compliance.",
+    pricing: "Annual agreement",
     regions: "EU-wide",
-    url: "https://eucompliancepartner.com",
+    url: "https://easproject.com/gpsr/",
+    ref: null,
+  },
+  {
+    name: "Obelis",
+    blurb: "Long-established Brussels-based European Authorised Representative for regulated and general products.",
+    pricing: "Annual agreement",
+    regions: "EU / Belgium",
+    url: "https://www.obelis.net",
+    ref: null,
+  },
+  {
+    name: "Certification Experts",
+    blurb: "Netherlands-based full-service compliance house: Responsible Person plus technical file and testing support.",
+    pricing: "Quote-based",
+    regions: "EU / Netherlands",
+    url: "https://certification-experts.com/gpsr-responsible-person/",
+    ref: null,
+  },
+  {
+    name: "Euverify",
+    blurb: "Subscription platform with EU and UK representation, document storage and templates. Priced for larger catalogues.",
+    pricing: "Monthly subscription",
+    regions: "EU + UK",
+    url: "https://euverify.com",
     ref: null,
   },
 ];
