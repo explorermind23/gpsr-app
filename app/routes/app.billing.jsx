@@ -48,10 +48,14 @@ export const action = async ({ request }) => {
     const planKey = String(form.get("planKey"));
     if (!BILLING_PLANS.includes(planKey)) return json({ error: "Unknown plan." }, { status: 400 });
     // Throws a redirect to Shopify's confirmation page.
+    // Return to the EMBEDDED admin URL, not the raw app URL — otherwise the
+    // merchant lands on a bare JSON page outside the Shopify admin.
+    const shopHandle = session.shop.replace(".myshopify.com", "");
+    const appHandle = process.env.SHOPIFY_APP_HANDLE || "gpsr-compliance-hub";
     await billing.request({
       plan: planKey,
       isTest: IS_TEST_BILLING,
-      returnUrl: `${process.env.SHOPIFY_APP_URL}/app/billing?changed=1`,
+      returnUrl: `https://admin.shopify.com/store/${shopHandle}/apps/${appHandle}/app/billing?changed=1`,
     });
     return null;
   }
@@ -78,7 +82,8 @@ export default function BillingPage() {
   const { plan, interval, used, isTest } = useLoaderData();
   const nav = useNavigation();
   const [searchParams, setSearchParams] = useSearchParams();
-  const busy = nav.state === "submitting";
+  const submittingPlanKey = nav.formData?.get("planKey");
+  const cancelling = nav.formData?.get("intent") === "cancel";
   const justChanged = searchParams.get("changed") === "1";
 
   const [yearly, setYearly] = useState(interval === "ANNUAL");
@@ -183,7 +188,7 @@ export default function BillingPage() {
                           ) : (
                             <Form method="post">
                               <input type="hidden" name="intent" value="cancel" />
-                              <Button submit variant="secondary" tone="critical" loading={busy} fullWidth>
+                              <Button submit variant="secondary" tone="critical" loading={cancelling} fullWidth>
                                 Downgrade to Free
                               </Button>
                             </Form>
@@ -194,7 +199,8 @@ export default function BillingPage() {
                           <Form method="post">
                             <input type="hidden" name="intent" value="subscribe" />
                             <input type="hidden" name="planKey" value={planKey} />
-                            <Button submit variant={c.highlight ? "primary" : "secondary"} loading={busy} fullWidth>
+                            <Button submit variant={c.highlight ? "primary" : "secondary"}
+                              loading={submittingPlanKey === planKey} fullWidth>
                               {`Choose ${c.name}`}
                             </Button>
                           </Form>
