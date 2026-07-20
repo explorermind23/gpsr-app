@@ -192,6 +192,15 @@ export default function Documents() {
     if (justSaved) { setFileName(""); setFileUrl(""); setProductRef(""); }
   }, [justSaved]);
 
+  // The redirect after a successful save keeps this component mounted, so the
+  // upload spinner has to be cleared explicitly once everything settles.
+  useEffect(() => {
+    if (nav.state === "idle" && stager.state === "idle" && uploading && !pendingFile) {
+      setUploading(false);
+      setUploadStage("");
+    }
+  }, [nav.state, stager.state, uploading, pendingFile]);
+
   const onDelete = useCallback((id) => {
     const fd = new FormData();
     fd.append("intent", "delete");
