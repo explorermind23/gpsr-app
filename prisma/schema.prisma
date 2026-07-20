@@ -265,6 +265,8 @@ model SupplierDataRequest {
   token         String  @unique
   status        String  @default("sent")
   submittedData Json?
+  emailSentAt   DateTime?
+  emailError    String?
   createdAt     DateTime @default(now())
 }
 
