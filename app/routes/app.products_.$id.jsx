@@ -128,8 +128,18 @@ export const action = async ({ request, params }) => {
       data.manufacturerId ? prisma.manufacturer.findUnique({ where: { id: data.manufacturerId } }) : null,
     ]);
     await ensureGpsrDefinitions(admin);
-    await writeComplianceMetafields(admin, productId, saved, rp, mf);
-  } catch (e) { /* metafield sync failed — record is still saved; retry on next save */ }
+    const sync = await writeComplianceMetafields(admin, productId, saved, rp, mf);
+    // Metafields are what the storefront block reads. A clean write on a READY
+    // product means it is genuinely live on the storefront.
+    if (sync?.ok && status === "READY") {
+      await prisma.productCompliance.update({
+        where: { id: saved.id },
+        data: { status: "PUBLISHED" },
+      });
+    }
+  } catch (e) {
+    console.error("[gpsr] metafield sync failed:", e?.message || e);
+  }
 
   return redirect(`/app/products/${productId.split("/").pop()}?saved=1`);
 };

@@ -238,33 +238,6 @@ export default function Index() {
           </InlineGrid>
         </Layout.Section>
 
-        {/* Channels */}
-        <Layout.Section>
-          <Card>
-            <BlockStack gap="300">
-              <Text as="h2" variant="headingMd">Channels</Text>
-              <Text as="p" variant="bodySm" tone="subdued">Enter safety data once — publish everywhere it's required.</Text>
-              <InlineGrid columns={{ xs: 1, sm: 3 }} gap="300">
-                {[
-                  { name: "Shopify storefront", state: "Live injection", tone: "success" },
-                  { name: "Amazon (EU)", state: "Feed export ready", tone: "attention" },
-                  { name: "TikTok Shop (EU)", state: "Sync ready", tone: "attention" },
-                ].map((c) => (
-                  <Box key={c.name} padding="300" borderColor="border" borderWidth="025" borderRadius="200">
-                    <BlockStack gap="150">
-                      <Text as="span" variant="bodyMd" fontWeight="semibold">{c.name}</Text>
-                      <Badge tone={c.tone}>{c.state}</Badge>
-                    </BlockStack>
-                  </Box>
-                ))}
-              </InlineGrid>
-              <InlineStack>
-                <Button url="/app/channels">Manage channels & exports</Button>
-              </InlineStack>
-            </BlockStack>
-          </Card>
-        </Layout.Section>
-
         {/* Quick actions + DPP */}
         <Layout.Section>
           <InlineGrid columns={{ xs: 1, md: 2 }} gap="300">
@@ -340,6 +313,33 @@ export default function Index() {
             </BlockStack>
           </Card>
           )}
+        </Layout.Section>
+
+        {/* Channels */}
+        <Layout.Section>
+          <Card>
+            <BlockStack gap="300">
+              <Text as="h2" variant="headingMd">Channels</Text>
+              <Text as="p" variant="bodySm" tone="subdued">Enter safety data once — publish everywhere it's required.</Text>
+              <InlineGrid columns={{ xs: 1, sm: 3 }} gap="300">
+                {[
+                  { name: "Shopify storefront", state: "Live injection", tone: "success" },
+                  { name: "Amazon (EU)", state: "Feed export ready", tone: "attention" },
+                  { name: "TikTok Shop (EU)", state: "Sync ready", tone: "attention" },
+                ].map((c) => (
+                  <Box key={c.name} padding="300" borderColor="border" borderWidth="025" borderRadius="200">
+                    <BlockStack gap="150">
+                      <Text as="span" variant="bodyMd" fontWeight="semibold">{c.name}</Text>
+                      <Badge tone={c.tone}>{c.state}</Badge>
+                    </BlockStack>
+                  </Box>
+                ))}
+              </InlineGrid>
+              <InlineStack>
+                <Button url="/app/channels">Manage channels & exports</Button>
+              </InlineStack>
+            </BlockStack>
+          </Card>
         </Layout.Section>
 
       </Layout>
