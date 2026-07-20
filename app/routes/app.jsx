@@ -30,15 +30,15 @@ export default function App() {
           <Link to="/app/scanner">{t("nav.scanner")}</Link>
           <Link to="/app/templates">{t("nav.templates")}</Link>
           <Link to="/app/responsible-persons">{t("nav.responsiblePersons")}</Link>
-          <Link to="/app/manufacturers">Manufacturers</Link>
+          <Link to="/app/manufacturers">{t("nav.manufacturers")}</Link>
           <Link to="/app/languages">{t("nav.languages")}</Link>
           <Link to="/app/channels">{t("nav.channels")}</Link>
           <Link to="/app/documents">{t("nav.documents")}</Link>
-          <Link to="/app/suppliers">Supplier requests</Link>
+          <Link to="/app/suppliers">{t("nav.suppliers")}</Link>
           <Link to="/app/incidents">{t("nav.incidents")}</Link>
-          <Link to="/app/recalls">Recall alerts</Link>
+          <Link to="/app/recalls">{t("nav.recalls")}</Link>
           <Link to="/app/settings">{t("nav.settings")}</Link>
-          <Link to="/app/billing">Plan &amp; Billing</Link>
+          <Link to="/app/billing">{t("nav.billing")}</Link>
         </NavMenu>
         <Outlet />
       </I18nProvider>
