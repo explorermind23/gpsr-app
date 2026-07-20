@@ -57,6 +57,7 @@ model Shop {
   auditEvents        AuditEvent[]
   supplierRequests   SupplierDataRequest[]
   productLedger      ProductLedgerEntry[]
+  recallMatches      RecallMatch[]
 }
 
 enum Plan {
@@ -298,4 +299,49 @@ model WarningLibraryItem {
   regulationRef String?
   version      Int     @default(1)
   updatedAt    DateTime @updatedAt
+}
+
+
+// ── EU Safety Gate (RAPEX) recall alerts ───────────────────────────────
+// Global cache of published EU recall alerts, shared by all shops.
+// Source: Safety Gate open data (weekly published alerts).
+model RecallAlert {
+  id            String   @id @default(cuid())
+  alertNumber   String   @unique
+  alertLevel    String?
+  alertCountry  String?
+  alertDate     DateTime?
+  productName   String?
+  productBrand  String?
+  productType   String?
+  productCategory String?
+  productBarcode  String?
+  description   String?
+  riskType      String?
+  rapexUrl      String?
+  imageUrl      String?
+  fetchedAt     DateTime @default(now())
+
+  matches       RecallMatch[]
+
+  @@index([alertDate])
+  @@index([productBrand])
+}
+
+// A recall alert matched against a specific merchant product.
+model RecallMatch {
+  id               String   @id @default(cuid())
+  shopId           String
+  shop             Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  alertId          String
+  alert            RecallAlert @relation(fields: [alertId], references: [id], onDelete: Cascade)
+  shopifyProductId String
+  productTitle     String?
+  matchReason      String
+  matchScore       Int      @default(0)
+  status           String   @default("NEW") // NEW | DISMISSED | ACTIONED
+  createdAt        DateTime @default(now())
+
+  @@unique([shopId, alertId, shopifyProductId])
+  @@index([shopId, status])
 }

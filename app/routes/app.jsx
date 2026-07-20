@@ -36,6 +36,7 @@ export default function App() {
           <Link to="/app/documents">{t("nav.documents")}</Link>
           <Link to="/app/suppliers">Supplier requests</Link>
           <Link to="/app/incidents">{t("nav.incidents")}</Link>
+          <Link to="/app/recalls">Recall alerts</Link>
           <Link to="/app/settings">{t("nav.settings")}</Link>
           <Link to="/app/billing">Plan &amp; Billing</Link>
         </NavMenu>
