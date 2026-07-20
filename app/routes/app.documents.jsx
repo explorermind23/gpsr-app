@@ -1,5 +1,5 @@
 import { json, redirect } from "@remix-run/node";
-import { useLoaderData, useActionData, Form, useNavigation, useSubmit, useSearchParams } from "@remix-run/react";
+import { useLoaderData, useActionData, Form, useNavigation, useSubmit, useSearchParams, useFetcher } from "@remix-run/react";
 import { useCallback, useState, useEffect } from "react";
 import {
   Page, Layout, Card, FormLayout, TextField, Select, Button, Banner, BlockStack,
@@ -168,6 +168,11 @@ export default function Documents() {
   const [uploading, setUploading] = useState(false);
   const [uploadStage, setUploadStage] = useState("");
   const [uploadError, setUploadError] = useState(null);
+  const [pendingFile, setPendingFile] = useState(null);
+
+  // A plain fetch() POST to a Remix route is treated as a document request and
+  // returns HTML, not JSON — useFetcher speaks the data protocol correctly.
+  const stager = useFetcher();
 
   useEffect(() => {
     if (actionData?.values) {
@@ -194,57 +199,73 @@ export default function Documents() {
     submit(fd, { method: "post" });
   }, [submit]);
 
-  // Browser-side three-step upload: stage → PUT to storage → register.
-  const handleDrop = useCallback(async (_files, accepted) => {
+  // Step 1 — ask our action for a staged upload target.
+  const handleDrop = useCallback((_files, accepted) => {
     const file = accepted?.[0];
     if (!file) return;
     setUploadError(null);
     setUploading(true);
+    setUploadStage("Preparing upload\u2026");
+    setPendingFile(file);
 
-    try {
-      setUploadStage("Preparing upload…");
-      const stageForm = new FormData();
-      stageForm.append("intent", "stageUpload");
-      stageForm.append("filename", file.name);
-      stageForm.append("mimeType", file.type || "application/octet-stream");
-      stageForm.append("fileSize", String(file.size));
+    const fd = new FormData();
+    fd.append("intent", "stageUpload");
+    fd.append("filename", file.name);
+    fd.append("mimeType", file.type || "application/octet-stream");
+    fd.append("fileSize", String(file.size));
+    stager.submit(fd, { method: "post" });
+  }, [stager]);
 
-      const stageRes = await fetch("/app/documents", { method: "POST", body: stageForm });
-      const stageJson = await stageRes.json();
-      if (!stageJson?.stagedTarget) {
-        setUploadError(stageJson?.uploadError || "Could not start the upload.");
-        setUploading(false);
-        return;
-      }
-
-      setUploadStage("Uploading file…");
-      const target = stageJson.stagedTarget;
-      const cloudForm = new FormData();
-      for (const p of target.parameters) cloudForm.append(p.name, p.value);
-      cloudForm.append("file", file);
-
-      const cloudRes = await fetch(target.url, { method: "POST", body: cloudForm });
-      if (!cloudRes.ok && cloudRes.status !== 201 && cloudRes.status !== 204) {
-        setUploadError("The file could not be uploaded to Shopify storage.");
-        setUploading(false);
-        return;
-      }
-
-      setUploadStage("Saving to your vault…");
-      const finalForm = new FormData();
-      finalForm.append("intent", "finalizeUpload");
-      finalForm.append("resourceUrl", target.resourceUrl);
-      finalForm.append("mimeType", file.type || "application/octet-stream");
-      finalForm.append("kind", kind);
-      finalForm.append("fileName", fileName.trim() || file.name);
-      finalForm.append("productRef", productRef);
-      finalForm.append("retentionYears", retentionYears);
-      submit(finalForm, { method: "post" });
-    } catch (e) {
-      setUploadError("Upload failed. Check your connection and try again.");
+  // Steps 2 and 3 — upload straight to Shopify storage, then register the file.
+  useEffect(() => {
+    if (stager.state !== "idle") return;
+    if (stager.data?.uploadError) {
+      setUploadError(stager.data.uploadError);
       setUploading(false);
+      setPendingFile(null);
+      return;
     }
-  }, [kind, fileName, productRef, retentionYears, submit]);
+    const target = stager.data?.stagedTarget;
+    if (!target || !pendingFile) return;
+
+    let cancelled = false;
+    (async () => {
+      try {
+        setUploadStage("Uploading file\u2026");
+        const cloudForm = new FormData();
+        for (const p of target.parameters) cloudForm.append(p.name, p.value);
+        cloudForm.append("file", pendingFile);
+
+        const cloudRes = await fetch(target.url, { method: "POST", body: cloudForm });
+        if (cancelled) return;
+        if (!cloudRes.ok && cloudRes.status !== 201 && cloudRes.status !== 204) {
+          setUploadError(`Shopify storage rejected the file (${cloudRes.status}).`);
+          setUploading(false);
+          setPendingFile(null);
+          return;
+        }
+
+        setUploadStage("Saving to your vault\u2026");
+        const finalForm = new FormData();
+        finalForm.append("intent", "finalizeUpload");
+        finalForm.append("resourceUrl", target.resourceUrl);
+        finalForm.append("mimeType", pendingFile.type || "application/octet-stream");
+        finalForm.append("kind", kind);
+        finalForm.append("fileName", fileName.trim() || pendingFile.name);
+        finalForm.append("productRef", productRef);
+        finalForm.append("retentionYears", retentionYears);
+        setPendingFile(null);
+        submit(finalForm, { method: "post" });
+      } catch (e) {
+        if (cancelled) return;
+        setUploadError("Upload failed: " + (e?.message || "unknown error"));
+        setUploading(false);
+        setPendingFile(null);
+      }
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stager.state, stager.data]);
 
   const rows = docs.map((d, index) => {
     const rb = retentionBadge(d.retainUntil);
