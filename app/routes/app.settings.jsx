@@ -25,7 +25,6 @@ export const action = async ({ request }) => {
   const { session } = await authenticate.admin(request);
   const shop = await getShop(session);
   const form = await request.formData();
-
   await prisma.shop.update({
     where: { id: shop.id },
     data: {
@@ -66,12 +65,19 @@ export default function Settings() {
         )}
         <Layout.Section>
           <Form method="post">
+            {/* Polaris Checkbox does not emit a submittable form value, so each
+                toggle is backed by a hidden input carrying its real state. */}
+            <input type="hidden" name="sellsIntoEU" value={sellsEU ? "on" : "off"} />
+            <input type="hidden" name="recallAlertsEnabled" value={recallAlerts ? "on" : "off"} />
+            <input type="hidden" name="weeklyDigestEnabled" value={weeklyDigest ? "on" : "off"} />
+            <input type="hidden" name="defaultRetentionYears" value={retention} />
+
             <BlockStack gap="400">
               <Card>
                 <BlockStack gap="300">
                   <Text as="h2" variant="headingMd">Store preferences</Text>
                   <Checkbox label="This store sells into the EU"
-                    name="sellsIntoEU" checked={sellsEU} onChange={setSellsEU}
+                    checked={sellsEU} onChange={setSellsEU}
                     helpText="Turn off to hide GPSR prompts if you don't sell to EU customers." />
                 </BlockStack>
               </Card>
@@ -80,7 +86,6 @@ export default function Settings() {
                 <BlockStack gap="300">
                   <Text as="h2" variant="headingMd">Document Vault</Text>
                   <Select label="Default retention period for new documents"
-                    name="defaultRetentionYears"
                     options={[
                       { label: "10 years (GPSR standard)", value: "10" },
                       { label: "5 years", value: "5" },
@@ -109,10 +114,10 @@ export default function Settings() {
                 <BlockStack gap="300">
                   <Text as="h2" variant="headingMd">Notifications</Text>
                   <Checkbox label="EU Safety Gate recall alerts"
-                    name="recallAlertsEnabled" checked={recallAlerts} onChange={setRecallAlerts}
+                    checked={recallAlerts} onChange={setRecallAlerts}
                     helpText="Warn me on the dashboard when an EU recall alert may match my catalog." />
                   <Checkbox label="Weekly compliance digest"
-                    name="weeklyDigestEnabled" checked={weeklyDigest} onChange={setWeeklyDigest}
+                    checked={weeklyDigest} onChange={setWeeklyDigest}
                     helpText="A weekly summary of products missing compliance data. (Email delivery coming soon.)" />
                 </BlockStack>
               </Card>
