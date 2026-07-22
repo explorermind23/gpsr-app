@@ -75,7 +75,7 @@ export const action = async ({ request }) => {
 const FEATURES = {
   FREE: ["10 products (lifetime)", "1 Responsible Person", "Storefront safety block", "1 market language"],
   STARTER: ["250 products (lifetime)", "All 24 EU languages", "Templates & bulk apply", "Compliance scanner", "Amazon (EU) export"],
-  PRO: ["Unlimited products", "Amazon · TikTok · eBay · Etsy · Temu export", "Document vault (10-yr)", "Incident log", "Supplier requests", "Priority support"],
+  PRO: ["Unlimited products", "Export to 10 EU marketplaces", "Amazon, TikTok, eBay, Etsy, Temu, Allegro, Kaufland, Zalando, bol.com, Cdiscount", "Document vault (10-yr)", "Incident log", "Supplier requests", "Priority support"],
 };
 
 export default function BillingPage() {
