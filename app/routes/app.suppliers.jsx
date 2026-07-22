@@ -328,6 +328,43 @@ export default function Suppliers() {
             </Card>
           )}
         </Layout.Section>
+
+        <Layout.Section>
+          <Card>
+            <BlockStack gap="300">
+              <Text as="h2" variant="headingMd">How supplier requests work</Text>
+              <Text as="p" variant="bodySm" tone="subdued">
+                Use this when you're missing safety details (manufacturer name, address, warnings) that
+                your supplier or factory has and you don't. It's most useful when you have many products
+                to chase. For one or two, emailing your supplier directly is just as fine.
+              </Text>
+              <Divider />
+              <BlockStack gap="200">
+                <InlineStack gap="200" blockAlign="start" wrap={false}>
+                  <Box minWidth="24px"><Text as="span" variant="headingSm" tone="subdued">1</Text></Box>
+                  <Text as="span" variant="bodyMd">Enter your supplier's email and the product above, then press <b>Create request link</b>.</Text>
+                </InlineStack>
+                <InlineStack gap="200" blockAlign="start" wrap={false}>
+                  <Box minWidth="24px"><Text as="span" variant="headingSm" tone="subdued">2</Text></Box>
+                  <Text as="span" variant="bodyMd">Press <b>Copy link</b> on the request below, then paste it into an email to your supplier from your own inbox.</Text>
+                </InlineStack>
+                <InlineStack gap="200" blockAlign="start" wrap={false}>
+                  <Box minWidth="24px"><Text as="span" variant="headingSm" tone="subdued">3</Text></Box>
+                  <Text as="span" variant="bodyMd">Your supplier opens the link, fills in the safety details on a simple form, and submits. They need no account and get no access to your store.</Text>
+                </InlineStack>
+                <InlineStack gap="200" blockAlign="start" wrap={false}>
+                  <Box minWidth="24px"><Text as="span" variant="headingSm" tone="subdued">4</Text></Box>
+                  <Text as="span" variant="bodyMd">Their answers appear on this page under the request, marked <b>Submitted</b>. You then copy them into the product's compliance data.</Text>
+                </InlineStack>
+              </BlockStack>
+              <Box paddingBlockStart="100">
+                <Text as="p" variant="bodySm" tone="subdued">
+                  Tip: automatic emailing turns on by itself once a verified sending domain is added — until then, the copy-and-send step above does the same job.
+                </Text>
+              </Box>
+            </BlockStack>
+          </Card>
+        </Layout.Section>
       </Layout>
     </Page>
   );
