@@ -5,9 +5,7 @@ import {
   Page, Layout, Card, BlockStack, InlineStack, Text, Badge, Button, Box, Icon,
   Divider, InlineGrid, Banner,
 } from "@shopify/polaris";
-import {
-  StoreIcon, ExportIcon, CheckCircleIcon, ClockIcon, GlobeIcon,
-} from "@shopify/polaris-icons";
+import { StoreIcon, ExportIcon, CheckCircleIcon, ClockIcon, GlobeIcon } from "@shopify/polaris-icons";
 import { authenticate } from "../shopify.server";
 import prisma from "../db.server";
 import { CHANNEL_META } from "../lib/exporters";
@@ -37,7 +35,6 @@ export const loader = async ({ request }) => {
   const formats = Object.fromEntries(
     Object.entries(CHANNEL_META).map(([k, m]) => [k, m.format])
   );
-
   const locked = Object.fromEntries(
     Object.keys(CHANNEL_META).map((k) => [k, !canExport(shop.plan, k)])
   );
@@ -51,6 +48,11 @@ const MARKETPLACES = [
   { key: "ebay", label: "eBay", desc: "CSV with all GPSR fields for eBay EU listings.", tone: "base" },
   { key: "etsy", label: "Etsy", desc: "CSV with all GPSR fields for Etsy EU listings.", tone: "base" },
   { key: "temu", label: "Temu", desc: "CSV with all GPSR fields for Temu EU listings.", tone: "base" },
+  { key: "allegro", label: "Allegro", desc: "GPSR sheet for Allegro EU, including the pre-13-Dec-2024 flag.", tone: "base" },
+  { key: "kaufland", label: "Kaufland", desc: "CSV with all GPSR fields for Kaufland Global Marketplace.", tone: "base" },
+  { key: "zalando", label: "Zalando", desc: "GPSR attributes for Zalando article onboarding.", tone: "base" },
+  { key: "bol", label: "bol.com", desc: "CSV with all GPSR fields for bol.com EU listings.", tone: "base" },
+  { key: "cdiscount", label: "Cdiscount", desc: "CSV with all GPSR fields for Cdiscount EU listings.", tone: "base" },
 ];
 
 export default function Channels() {
@@ -82,7 +84,7 @@ export default function Channels() {
       URL.revokeObjectURL(url);
       revalidator.revalidate(); // refresh "Recent exports"
     } catch (e) {
-      setExportError(`Could not generate the ${key} export. Try again — if it keeps failing, re-open the app.`);
+      setExportError(`Could not generate the ${key} export. Try again — or if it keeps failing, re-open the app.`);
     } finally {
       setDownloading(null);
     }
