@@ -213,8 +213,11 @@ export default function Suppliers() {
         )}
         {!mailEnabled && (
           <Layout.Section>
-            <Banner tone="info" title="Email sending is not configured">
-              <Text as="p">Requests still work — copy the secure link and send it yourself.</Text>
+            <Banner tone="info" title="Sending emails from the app is not enabled yet">
+              <Text as="p">
+                Requests work exactly the same — create one below, copy the secure link, and send it
+                to your supplier from your own email. Nothing is lost.
+              </Text>
             </Banner>
           </Layout.Section>
         )}
@@ -240,7 +243,7 @@ export default function Suppliers() {
                     checked={sendEmail} onChange={setSendEmail} disabled={!mailEnabled}
                     helpText={mailEnabled
                       ? "They receive a secure link. No account needed, and no access to your store."
-                      : "Email sending is not configured on this store."} />
+                      : "Not available yet — create the request and copy the link instead."} />
                   <InlineStack align="end">
                     <Button variant="primary" submit loading={busy}>
                       {sendEmail && mailEnabled ? "Create and send" : "Create request link"}

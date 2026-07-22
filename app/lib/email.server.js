@@ -7,8 +7,19 @@
 
 const RESEND_ENDPOINT = "https://api.resend.com/emails";
 
+// Resend's shared test sender (onboarding@resend.dev) only delivers to the
+// Resend account owner's own inbox. Leaving the feature "on" with that sender
+// would show merchants a success message while their supplier receives nothing.
+// So email is only considered available once a real verified sending domain is
+// configured — set RESEND_FROM to an address on that domain and it turns on by
+// itself, no code change needed.
+const SHARED_TEST_SENDER = "onboarding@resend.dev";
+
 export function emailConfigured() {
-  return Boolean(process.env.RESEND_API_KEY);
+  const key = process.env.RESEND_API_KEY;
+  const from = (process.env.RESEND_FROM || "").trim().toLowerCase();
+  if (!key || !from) return false;
+  return from !== SHARED_TEST_SENDER;
 }
 
 function escapeHtml(s) {
@@ -23,7 +34,13 @@ async function send({ to, subject, html, text, replyTo }) {
   const key = process.env.RESEND_API_KEY;
   if (!key) return { ok: false, error: "Email is not configured on this server." };
 
-  const from = process.env.RESEND_FROM || "onboarding@resend.dev";
+  const from = (process.env.RESEND_FROM || "").trim();
+  if (!from || from.toLowerCase() === SHARED_TEST_SENDER) {
+    return {
+      ok: false,
+      error: "No verified sending domain is configured, so the email was not sent.",
+    };
+  }
 
   try {
     const res = await fetch(RESEND_ENDPOINT, {
