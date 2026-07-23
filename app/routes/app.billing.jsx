@@ -115,11 +115,6 @@ export default function BillingPage() {
               onDismiss={() => setSearchParams({}, { replace: true })} />
           </Layout.Section>
         )}
-        {isTest && (
-          <Layout.Section>
-            <Banner tone="info" title="Test billing mode — no real charges. Set BILLING_LIVE=true before public launch." />
-          </Layout.Section>
-        )}
 
         <Layout.Section>
           <Card>
