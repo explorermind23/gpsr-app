@@ -29,7 +29,7 @@ export function planFromBillingCheck(appSubscriptions) {
 export const PLAN_EXPORTS = {
   FREE: [],
   STARTER: ["amazon"],
-  PRO: ["amazon", "tiktok", "ebay", "etsy", "temu"],
+  PRO: ["amazon", "tiktok", "ebay", "etsy", "temu", "allegro", "kaufland", "zalando", "bol", "cdiscount"],
 };
 
 export function canExport(plan, channel) {
