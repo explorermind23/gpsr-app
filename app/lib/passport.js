@@ -246,7 +246,7 @@ export async function buildPassportPdf({ product, record, rp, manufacturer, bran
       color: HAIRLINE,
     });
     p.drawText(
-      `Generated ${stamp} by ${brand?.shopName || "GPSR Compliance Hub"} · This document summarises stored compliance data and is not a certificate of conformity.`,
+      `Generated ${stamp} by ${brand?.shopName || "Alnage"} · This document summarises stored compliance data and is not a certificate of conformity.`,
       { x: M.left, y: M.bottom - 26, size: 7, font: fRegular, color: MUTED }
     );
     p.drawText(`${i + 1} / ${pages.length}`, {

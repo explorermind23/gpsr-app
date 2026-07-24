@@ -35,8 +35,8 @@ export const loader = async () => {
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Terms of Service — GPSR Compliance Hub</title>
-<meta name="description" content="Terms of service for the GPSR Compliance Hub Shopify app." />
+<title>Terms of Service — Alnage</title>
+<meta name="description" content="Terms of service for the Alnage Shopify app." />
 <style>${CSS}</style>
 </head>
 <body>
@@ -45,7 +45,7 @@ export const loader = async () => {
   <p class="meta">Last updated ${UPDATED}</p>
   <h1>Terms of Service</h1>
   <p class="lede">
-    These terms govern your use of GPSR Compliance Hub ("the app"). By installing the app you agree
+    These terms govern your use of Alnage ("the app"). By installing the app you agree
     to them. If you do not agree, uninstall the app.
   </p>
 
@@ -154,7 +154,7 @@ export const loader = async () => {
   <h2>11. Contact</h2>
   <p>Email: <a href="mailto:${CONTACT}">${CONTACT}</a></p>
 </main>
-<footer>GPSR Compliance Hub — an independent application. Not affiliated with Shopify Inc. or the European Commission.</footer>
+<footer>Alnage — an independent application. Not affiliated with Shopify Inc. or the European Commission.</footer>
 </body>
 </html>`;
 

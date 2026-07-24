@@ -37,8 +37,8 @@ export const loader = async () => {
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Privacy Policy — GPSR Compliance Hub</title>
-<meta name="description" content="Privacy policy for the GPSR Compliance Hub Shopify app: what data is stored, why, who it is shared with, and how to have it deleted." />
+<title>Privacy Policy — Alnage</title>
+<meta name="description" content="Privacy policy for the Alnage Shopify app: what data is stored, why, who it is shared with, and how to have it deleted." />
 <style>${CSS}</style>
 </head>
 <body>
@@ -47,7 +47,7 @@ export const loader = async () => {
   <p class="meta">Last updated ${UPDATED}</p>
   <h1>Privacy Policy</h1>
   <p class="lede">
-    GPSR Compliance Hub ("the app") helps Shopify merchants meet their obligations under the EU
+    Alnage ("the app") helps Shopify merchants meet their obligations under the EU
     General Product Safety Regulation (EU) 2023/988. This policy explains exactly what the app
     stores, why it stores it, who it is shared with, and how to have it deleted.
   </p>
@@ -217,7 +217,7 @@ export const loader = async () => {
     Please include your store domain so requests can be located quickly.
   </p>
 </main>
-<footer>GPSR Compliance Hub — an independent application. Not affiliated with Shopify Inc. or the European Commission. This app assists with compliance and does not constitute legal advice.</footer>
+<footer>Alnage — an independent application. Not affiliated with Shopify Inc. or the European Commission. This app assists with compliance and does not constitute legal advice.</footer>
 </body>
 </html>`;
 

@@ -155,7 +155,7 @@ export default function SupplierForm() {
         {body}
         <Box paddingBlockStart="400">
           <Text as="p" variant="bodyXs" tone="subdued" alignment="center">
-            Powered by GPSR Compliance Hub
+            Powered by Alnage
           </Text>
         </Box>
       </Page>

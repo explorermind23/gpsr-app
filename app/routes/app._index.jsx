@@ -118,7 +118,7 @@ export default function Index() {
 
   return (
     <Page
-      title="GPSR Compliance Hub"
+      title="Alnage - GPSR Compliance"
       subtitle="EU product-safety compliance across every sales channel"
       primaryAction={{ content: "Scan my catalog", url: "/app/scanner" }}
       secondaryActions={
