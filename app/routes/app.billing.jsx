@@ -23,8 +23,22 @@ export const loader = async ({ request }) => {
   const { billing, session } = await authenticate.admin(request);
   const shop = await getShop(session);
 
-  const { appSubscriptions } = await billing.check({ plans: BILLING_PLANS, isTest: IS_TEST_BILLING });
-  const { plan, interval } = planFromBillingCheck(appSubscriptions);
+  const url = new URL(request.url);
+  const justChanged = url.searchParams.get("changed") === "1";
+
+  // On the return leg from Shopify approval, billing.check can briefly report
+  // the OLD subscription. Poll until it flips (bounded).
+  let plan, interval;
+  {
+    const wanted = justChanged ? 8 : 1;
+    for (let attempt = 0; attempt < wanted; attempt++) {
+      const { appSubscriptions } = await billing.check({ plans: BILLING_PLANS, isTest: IS_TEST_BILLING });
+      ({ plan, interval } = planFromBillingCheck(appSubscriptions));
+      const prev = shop.plan || "FREE";
+      if (!justChanged || plan !== prev || attempt === wanted - 1) break;
+      await new Promise((r) => setTimeout(r, 750));
+    }
+  }
 
   // Keep DB in sync with Shopify's billing truth.
   if (shop.plan !== plan || shop.planInterval !== interval) {
