@@ -9,7 +9,8 @@ import { authenticate } from "../shopify.server";
 import prisma from "../db.server";
 import { PLAN_LIMITS, PLAN_PRICING } from "../lib/plans";
 import {
-  BILLING_PLANS, IS_TEST_BILLING, planFromBillingCheck, getLedgerUsage,
+  BILLING_PLANS, IS_TEST_BILLING, getLedgerUsage,
+  resolvePlanBothModes,
 } from "../lib/billing.server";
 
 async function getShop(session) {
@@ -26,17 +27,18 @@ export const loader = async ({ request }) => {
   const url = new URL(request.url);
   const justChanged = url.searchParams.get("changed") === "1";
 
-  // On the return leg from Shopify approval, billing.check can briefly report
-  // the OLD subscription. Poll until it flips (bounded).
+  // Resolve plan by checking BOTH test and live subscriptions. A reviewer test
+  // charge and a real merchant live charge both resolve; a live-flagged app
+  // would otherwise report FREE for the reviewer test subscription.
   let plan, interval;
   {
     const wanted = justChanged ? 8 : 1;
     for (let attempt = 0; attempt < wanted; attempt++) {
-      const { appSubscriptions } = await billing.check({ plans: BILLING_PLANS, isTest: IS_TEST_BILLING });
-      ({ plan, interval } = planFromBillingCheck(appSubscriptions));
+      const r = await resolvePlanBothModes(billing);
+      plan = r.plan; interval = r.interval;
       const prev = shop.plan || "FREE";
       if (!justChanged || plan !== prev || attempt === wanted - 1) break;
-      await new Promise((r) => setTimeout(r, 750));
+      await new Promise((res) => setTimeout(res, 750));
     }
   }
 
@@ -75,9 +77,12 @@ export const action = async ({ request }) => {
   }
 
   if (intent === "cancel") {
-    const { appSubscriptions } = await billing.check({ plans: BILLING_PLANS, isTest: IS_TEST_BILLING });
-    for (const sub of appSubscriptions) {
-      await billing.cancel({ subscriptionId: sub.id, isTest: IS_TEST_BILLING, prorate: true });
+    // Cancel whichever subscription exists (test or live).
+    for (const mode of [false, true]) {
+      const { appSubscriptions } = await billing.check({ plans: BILLING_PLANS, isTest: mode });
+      for (const sub of appSubscriptions) {
+        await billing.cancel({ subscriptionId: sub.id, isTest: mode, prorate: true });
+      }
     }
     await prisma.shop.update({ where: { id: shop.id }, data: { plan: "FREE", planActivatedAt: null } });
     return json({ cancelled: true });
