@@ -32,29 +32,25 @@ function fullAddress(x) {
   return `${x.streetAddress}, ${x.city} ${x.postalCode}, ${x.country}`;
 }
 
-// ─────── AMAZON — EU GPSR compliance bulk sheet ───────
-// Column IDs verified against Seller Central (Account Health > Product
-// Compliance > GPSR bulk template). Notes:
-//  - "gpsr_manufacturer_email_adress" is Amazon's own spelling (do not fix it).
-//  - seller_sku must match the seller's SKU in Seller Central; we pre-fill the
-//    GTIN so the seller can VLOOKUP/replace with their own SKUs before upload.
-//  - compliance_media_* columns are numbered series (_01, _02 etc.); we emit _01
-//    with the combined safety warnings as inline text plus language code of the
-//    first warning.
+// ─────── AMAZON — EU GPSR compliance data sheet ───────
+// Amazon deprecates its flat-file GPSR templates without notice and generates
+// them per product category inside Seller Central, so no fixed column set stays
+// valid. This sheet therefore uses stable, human-readable headers and is a
+// DATA WORKSHEET the seller maps into their freshly-downloaded Amazon template
+// (Catalog > Add products via upload). It is never uploaded to Amazon directly,
+// so Amazon schema changes cannot break it. Every GPSR value Amazon asks for is
+// present; the seller copies each column into the matching template field.
 export function buildAmazonCsv(items) {
   const headers = [
-    "seller_sku",
-    "external_product_id",
-    "external_product_id_type",
+    "seller_sku_or_gtin",
+    "product_identifier_type",
     "item_name",
-    "gpsr_manufacturer_reference.gpsr_manufacturer_name",
-    "gpsr_manufacturer_reference.gpsr_manufacturer_address",
-    "gpsr_manufacturer_reference.gpsr_manufacturer_email_adress",
-    "dsa_responsible_party_address.value",
-    "gpsr_safety_attestation.value",
-    "compliance_media_content_type_01",
-    "compliance_media_content_language_01",
-    "compliance_media_source_location_01",
+    "manufacturer_name",
+    "manufacturer_address",
+    "manufacturer_email",
+    "responsible_person_details",
+    "gpsr_safety_attestation",
+    "safety_warning_language",
     "safety_warnings_text",
   ];
   const rows = items.map(({ rec, rp, mf }) => {
@@ -62,20 +58,19 @@ export function buildAmazonCsv(items) {
       ? String(rec.warnings[0].locale).toLowerCase()
       : "";
     return {
-      seller_sku: rec.gtin || "",
-      external_product_id: rec.gtin || "",
-      external_product_id_type: rec.gtin ? "EAN" : "",
+      seller_sku_or_gtin: rec.gtin || "",
+      product_identifier_type: rec.gtin ? "EAN" : "",
       item_name: rec.productTitle || "",
-      "gpsr_manufacturer_reference.gpsr_manufacturer_name": mf ? mf.legalName : "",
-      "gpsr_manufacturer_reference.gpsr_manufacturer_address": fullAddress(mf),
-      "gpsr_manufacturer_reference.gpsr_manufacturer_email_adress": mf ? (mf.email || "") : "",
-      "dsa_responsible_party_address.value": rp
+      manufacturer_name: mf ? mf.legalName : "",
+      manufacturer_address: fullAddress(mf),
+      manufacturer_email: mf ? (mf.email || "") : "",
+      responsible_person_details: rp
         ? `${rp.legalName}, ${fullAddress(rp)}, ${rp.email}, ${rp.phone}`
         : "",
-      "gpsr_safety_attestation.value": "TRUE",
-      compliance_media_content_type_01: "safety_information",
-      compliance_media_content_language_01: firstWarnLocale ? `${firstWarnLocale}_${(rp?.country || "DE").toUpperCase()}` : "",
-      compliance_media_source_location_01: "",
+      gpsr_safety_attestation: "TRUE",
+      safety_warning_language: firstWarnLocale
+        ? `${firstWarnLocale}_${(rp?.country || "DE").toUpperCase()}`
+        : "",
       safety_warnings_text: warningsToText(rec.warnings),
     };
   });
@@ -181,7 +176,7 @@ export function buildAllegroCsv(items) {
 }
 
 export const CHANNEL_META = {
-  amazon: { label: "Amazon (EU)", format: "amazon-flatfile", build: buildAmazonCsv, filename: "gpsr-amazon-compliance-sheet.csv" },
+  amazon: { label: "Amazon (EU)", format: "data-sheet", build: buildAmazonCsv, filename: "gpsr-amazon-data-sheet.csv" },
   tiktok: { label: "TikTok Shop (EU)", format: "tiktok-qualification", build: buildTiktokCsv, filename: "gpsr-tiktok-qualification-prep.csv" },
   ebay: { label: "eBay", format: "csv", build: buildGenericCsv, filename: "gpsr-ebay-export.csv" },
   etsy: { label: "Etsy", format: "csv", build: buildGenericCsv, filename: "gpsr-etsy-export.csv" },
